@@ -36,7 +36,7 @@ def get_midi_decoder(hp):
   if hp.midi_decoder_decoder_net == 'dilated_conv':
     net = nn.DilatedConvStack(
       ch=256,
-      layers_per_stack=5,
+      num_layers=5,
       stacks=4,
       norm_type='layer',
       conditional=True,
@@ -53,7 +53,7 @@ def get_midi_decoder(hp):
   elif hp.midi_decoder_decoder_net == 'noise_dilated_conv':
     net = nn.DilatedConvStack(
       ch=128,
-      layers_per_stack=5,
+      num_layers=5,
       stacks=4,
       norm_type='layer',
       conditional=True,

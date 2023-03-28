@@ -465,7 +465,7 @@ class MidiToSynthAutoregDecoder(tfk.Model):
     self.midi_f0_to_harmonic = MidiExpreToSynthDecoder(
       net=nn.DilatedConvStack(
         ch=128,
-        layers_per_stack=5,
+        num_layers=5,
         stacks=4,
         norm_type='layer',
         conditional=False,
