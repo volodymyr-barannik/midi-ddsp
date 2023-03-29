@@ -15,10 +15,10 @@
 #!/bin/bash
 
 batch_size=4 #16
-training_steps=50 #50000
+training_epochs=50 #50000
 eval_interval=50 #10000
 checkpoint_save_interval=50 #10000
-synth_coder_training_steps=50 #10000
+synth_coder_training_epochs=50 #10000
 data_dir=./data
 midi_audio_loss=true
 train_synth_coder_first=true
@@ -36,7 +36,7 @@ reverb_length=48000
 name=logs_expression_generator
 
 python train_synthesis_generator.py --batch_size $batch_size \
-  --training_steps $training_steps \
+  --training_epochs $training_epochs \
   --data_dir $data_dir --name $name \
   --eval_interval $eval_interval \
   --checkpoint_save_interval $checkpoint_save_interval \
@@ -50,12 +50,12 @@ python train_synthesis_generator.py --batch_size $batch_size \
   --add_synth_loss $add_synth_loss \
   --synth_params_loss $synth_params_loss \
   --reverb $reverb \
-  --synth_coder_training_steps $synth_coder_training_steps \
+  --synth_coder_training_epochs $synth_coder_training_epochs \
   --use_gan $use_gan \
   --lambda_recon $lambda_recon \
   --reverb_length $reverb_length
 
-#synthesis_generator_weight_path=./logs/${name}/${training_steps}
+#synthesis_generator_weight_path=./logs/${name}/${training_epochs}
 
 #python dump_expression_generator_dataset.py --model_path $synthesis_generator_weight_path \
 #  --data_dir $data_dir --output_dir ./logs/expression_generator_dataset
@@ -63,4 +63,4 @@ python train_synthesis_generator.py --batch_size $batch_size \
 #python train_expression_generator.py \
 #  --training_set_path ./logs/expression_generator_dataset/pickles/train_separate_piece.pickle \
 #  --test_set_path ./logs/expression_generator_dataset/pickles/test.pickle \
-#  --training_steps 500 #5000
+#  --training_epochs 500 #5000

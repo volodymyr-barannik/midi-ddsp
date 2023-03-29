@@ -106,7 +106,7 @@ def evaluate(dataset, step):
 
 
 if __name__ == '__main__':
-  parser.add_argument('--training_steps', type=int, default=20000,
+  parser.add_argument('--training_epochs', type=int, default=20000,
                       help='Number of training steps.')
   parser.add_argument('--nhid', type=int, default=128,
                       help='Number of hidden units.')
@@ -126,7 +126,7 @@ if __name__ == '__main__':
                            'to be restored.')
 
   args = parser.parse_args()
-  training_steps = args.training_steps
+  training_epochs = args.training_epochs
   train_path = args.training_set_path
   test_path = args.test_set_path
   restore_path = args.restore_path
@@ -170,4 +170,4 @@ if __name__ == '__main__':
                                            batch_size=batch_size * 3)
   training_data = iter(training_data)
 
-  train(training_data, training_steps, start_step=1)
+  train(training_data, training_epochs, start_step=1)
