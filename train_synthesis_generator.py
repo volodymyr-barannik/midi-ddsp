@@ -105,15 +105,13 @@ def train(training_data, training_data_length, training_epochs, start_epoch=1):
                 gan_loss_helper.reset_metrics()
             logging.info(msg)
 
-            # Print a message on the same line
-            IPython.display.clear_output()
-            print(msg)
-
             start_time = time.time()
 
         # Evaluate.
         if epoch % hp.eval_interval == 0:
-            evaluate(evaluation_data, epoch=epoch, step=step)
+            eval_start_time = time.time()
+
+            eval_losses_dict = evaluate(evaluation_data, epoch=epoch, step=step)
 
             # Synthesize training data.
             outputs = model(train_sample_batch, training=True, run_synth_coder_only=hp.run_synth_coder_only)
@@ -131,6 +129,9 @@ def train(training_data, training_data_length, training_epochs, start_epoch=1):
                 save_results(outputs['midi_audio'], eval_sample_batch['audio'], log_dir, f'eval_{epoch}_midi', hp.sample_rate)
             if hp.write_tfrecord_audio:
                 write_tensorboard_audio(writer, eval_sample_batch, outputs, epoch, tag='Eval')
+
+            eval_time_elapsed = time.time() - eval_start_time
+            logging.info(f"Evaluation took {eval_time_elapsed*1000}ms")
 
         # DDSP Inference training finished.
         # Start training Synthesis Generator and dump dataset for expression generator.
@@ -159,6 +160,8 @@ def evaluate(evaluation_data, epoch, step):
     msg = f'eval: | epoch {epoch:6d} | eval time: {(time.time() - start_time):3.3f}'
     msg = msg + eval_loss_helper.get_loss_log()
     logging.info(msg)
+
+    return eval_loss_helper.get_loss_dict()
 
 
 if __name__ == '__main__':

@@ -44,6 +44,14 @@ class LossHelper:
       log = log + f'| {loss_name} {loss_result:5.4f} '
     return log
 
+  def get_loss_dict(self):
+    res = {}
+    for loss_name in self.loss_list:
+      loss_result = self.metrics[f'mean_{loss_name}'].result()
+      res[loss_name] = loss_result
+    return res
+
+
   def write_mean_summary(self, writer, group_name, step):
     with writer.as_default():
       for loss_name in self.loss_list:
