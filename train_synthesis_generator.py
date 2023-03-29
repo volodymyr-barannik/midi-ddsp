@@ -20,8 +20,10 @@ import os
 import sys
 import logging
 import argparse
+import IPython
 
 from keras.utils.layer_utils import print_summary
+from livelossplot import PlotLosses
 
 from midi_ddsp.data_handling.get_dataset import get_dataset
 from midi_ddsp.utils.training_utils import print_hparams, set_seed, \
@@ -36,9 +38,10 @@ from midi_ddsp.modules.get_synthesis_generator import get_synthesis_generator, \
 from midi_ddsp.modules.discriminator import Discriminator
 
 parser = argparse.ArgumentParser(description='Train Synthesis Generator.')
+plotlosses = PlotLosses()
 
 set_seed(hp.seed)
-
+losses_history = []
 
 def train(training_data, training_data_length, training_epochs, start_epoch=1):
     """Training loop including evaluation."""
@@ -76,6 +79,10 @@ def train(training_data, training_data_length, training_epochs, start_epoch=1):
             loss_helper.update_metrics(loss_dict_recon)
             loss_helper.write_summary(loss_dict_recon, writer, 'Train', step)
 
+            print(f"training: {loss_dict_recon}")
+            plotlosses.update({'acc': 0, 'val_acc': 0, 'loss': loss_dict_recon['total_loss'], 'val_loss': 0})
+            plotlosses.send()
+
             # Train discriminator and update GAN loss.
             if not hp.run_synth_coder_only and hp.use_gan:
                 gradients_of_discriminator = disc_tape.gradient(loss_dict_disc['disc_loss'], net_D.trainable_variables)
@@ -97,11 +104,16 @@ def train(training_data, training_data_length, training_epochs, start_epoch=1):
                 msg = msg + gan_loss_helper.get_loss_log()
                 gan_loss_helper.reset_metrics()
             logging.info(msg)
+
+            # Print a message on the same line
+            IPython.display.clear_output()
+            print(msg)
+
             start_time = time.time()
 
         # Evaluate.
         if epoch % hp.eval_interval == 0:
-            evaluate(evaluation_data, epoch)
+            evaluate(evaluation_data, epoch=epoch, step=step)
 
             # Synthesize training data.
             outputs = model(train_sample_batch, training=True, run_synth_coder_only=hp.run_synth_coder_only)
@@ -132,7 +144,7 @@ def train(training_data, training_data_length, training_epochs, start_epoch=1):
             model.save_weights(f'{log_dir}/e{epoch}_s{step}')
 
 
-def evaluate(evaluation_data, step):
+def evaluate(evaluation_data, epoch, step):
     """Evaluating the test set."""
     eval_loss_helper = ReconLossHelper(hp, eval_recon_loss=True)
     start_time = time.time()
@@ -140,13 +152,11 @@ def evaluate(evaluation_data, step):
         outputs = model(data, training=False,
                         run_synth_coder_only=hp.run_synth_coder_only)
 
-        loss_dict = eval_loss_helper.compute_loss(data, outputs,
-                                                  synth_coder_only=
-                                                  hp.run_synth_coder_only)
+        loss_dict = eval_loss_helper.compute_loss(data, outputs,synth_coder_only=hp.run_synth_coder_only)
         eval_loss_helper.update_metrics(loss_dict)
 
     eval_loss_helper.write_mean_summary(writer, 'Eval', step)
-    msg = f'eval: | step {step:6d} | eval time: {(time.time() - start_time):3.3f}'
+    msg = f'eval: | epoch {epoch:6d} | eval time: {(time.time() - start_time):3.3f}'
     msg = msg + eval_loss_helper.get_loss_log()
     logging.info(msg)
 
