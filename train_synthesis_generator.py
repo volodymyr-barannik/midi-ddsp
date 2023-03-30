@@ -320,4 +320,4 @@ if __name__ == '__main__':
 
     elif hp.mode == 'eval':
         hp.run_synth_coder_only = False
-        evaluate(evaluation_data, start_epoch)
+        evaluate(evaluation_data, epoch=start_epoch, step=int(start_epoch/length_training_data))

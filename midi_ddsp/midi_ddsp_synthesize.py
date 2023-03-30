@@ -153,11 +153,8 @@ def synthesize_midi(synthesis_generator, expression_generator, midi_file,
       instrument_id = tf.constant([MIDI_PROGRAM_TO_INST_ID_DICT[midi_program]])
       instrument_id_all.append(instrument_id)
       note_sequence['instrument_id'] = instrument_id
-      expression_generator_outputs = expression_generator(note_sequence,
-                                                          out=None,
-                                                          training=False)
-      conditioning_df = expression_generator_output_to_conditioning_df(
-        expression_generator_outputs['output'], note_sequence)
+      expression_generator_outputs = expression_generator(note_sequence, out=None, training=False)
+      conditioning_df = expression_generator_output_to_conditioning_df(expression_generator_outputs['output'], note_sequence)
       conditioning_df_all.append(conditioning_df)
       part_synth_by_model.append(part_number)
     elif use_fluidsynth:

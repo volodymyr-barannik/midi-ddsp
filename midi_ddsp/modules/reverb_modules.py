@@ -42,27 +42,35 @@ class ReverbModules(tfk.Model):
   An unique reverb parameter is used for each instrument id.
   """
 
-  def __init__(self, num_reverb=1, reverb_length=48000):
+  def __init__(self, num_reverb=1, reverb_length=48000, use_filtered_noise_reverb=True):
     super().__init__()
     self.num_reverb = num_reverb
     self.reverb_length = reverb_length
-    self.reverb = ddsp.effects.Reverb(trainable=False,
-                                      reverb_length=reverb_length)
+
+    if use_filtered_noise_reverb:
+        self.reverb = ddsp.effects.FilteredNoiseReverb(trainable=False,
+                                                       reverb_length=reverb_length,
+                                                       n_frames=500,
+                                                       n_filter_banks=32,
+                                                       initial_bias=-4.0,
+                                                       name='filtered_noise_reverb')
+    else:
+        self.reverb = ddsp.effects.Reverb(trainable=False, reverb_length=reverb_length)
+
     initializer = tf.random_normal_initializer(mean=0, stddev=1e-6)
-    self.magnitudes_embedding = tfkl.Embedding(num_reverb, reverb_length,
-                                               embeddings_initializer=
-                                               initializer)
+    self.magnitudes_embedding = tfkl.Embedding(num_reverb, reverb_length, embeddings_initializer=initializer)
 
   def call(self, audio, reverb_number=0, training=False):
     batch_size = audio.shape[0]
     if isinstance(reverb_number, int):
-      reverb_number = tf.repeat(tf.constant([reverb_number], dtype=tf.int64),
-                                batch_size)
+      reverb_number = tf.repeat(tf.constant([reverb_number], dtype=tf.int64), batch_size)
+
     if self.num_reverb == 1 or reverb_number is None:  # unified reverb
       reverb_number = tf.repeat(tf.constant([0], dtype=tf.int64), batch_size)
+
     ir_magnitudes = self.magnitudes_embedding(reverb_number)
     if not training:
-      ir_magnitudes = ir_magnitudes * get_exp_decay(
-        self.reverb_length, 16000, 4)[tf.newaxis, ...]
+      ir_magnitudes = ir_magnitudes * get_exp_decay(self.reverb_length, 16000, 4)[tf.newaxis, ...]
+
     output = self.reverb(audio, ir_magnitudes)
     return output

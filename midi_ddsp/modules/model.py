@@ -128,13 +128,10 @@ class MIDIExpressionAE(tf.keras.Model):
 
     f0_loss_weights = tf.cast(tf.abs(f0_midi - q_pitch) < 2.0, tf.float32)
 
-    return q_pitch, q_vel, f0_loss_weights, features['onsets'], features[
-      'offsets']
+    return q_pitch, q_vel, f0_loss_weights, features['onsets'], features['offsets']
 
   def gen_cond_dict_from_feature(self, features, training=False):
-    synth_params, control_params, synth_audio = self.run_synth_coder(features,
-                                                                     training=
-                                                                     training)
+    synth_params, control_params, synth_audio = self.run_synth_coder(features, training=training)
 
     # synth_params_normalized: scaled and normalized synth params
     synth_params_normalized = extract_harm_controls(control_params)
@@ -200,8 +197,7 @@ class MIDIExpressionAE(tf.keras.Model):
       return outputs
 
     # synth_params_normalized: scaled and normalized synth params
-    synth_params_normalized = extract_harm_controls(control_params,
-                                                    stop_gradient=True)
+    synth_params_normalized = extract_harm_controls(control_params, stop_gradient=True)
 
     # rearrange midi features in readable format
     midi_features = self.get_gt_midi(features)
@@ -211,20 +207,16 @@ class MIDIExpressionAE(tf.keras.Model):
                                                        synth_params_normalized,
                                                        midi_features,
                                                        training=training,
-                                                       synth_params=
-                                                       control_params)
+                                                       synth_params=control_params)
 
     if self.use_f0_ld:
       midi_synth_params, midi_control_params, midi_audio = self.run_synth_coder(
         {'f0_hz': params_pred['f0_hz'],
          'loudness_db': params_pred['ld'],
-         'instrument_id': features[
-           'instrument_id']
-         },
+         'instrument_id': features['instrument_id']},
         training=training)
 
-      f0_pred, amps_pred, hd_pred, noise_pred = extract_harm_controls(
-        midi_control_params)
+      f0_pred, amps_pred, hd_pred, noise_pred = extract_harm_controls(midi_control_params)
 
     else:
       midi_synth_params = self.processor_group.get_controls(
@@ -232,7 +224,7 @@ class MIDIExpressionAE(tf.keras.Model):
          'harmonic_distribution': params_pred[
            'harmonic_distribution'],
          'noise_magnitudes': params_pred['noise_magnitudes'],
-         'f0_hz': params_pred['f0_hz'], },
+         'f0_hz': params_pred['f0_hz']},
         verbose=False)
       # --- MIDI Audio Losses
       midi_audio = self.processor_group.get_signal(midi_synth_params)
