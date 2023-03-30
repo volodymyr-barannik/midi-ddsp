@@ -121,8 +121,16 @@ def get_synthesis_generator(hp):
 
   if hp.reverb:
     num_reverb = NUM_INST if hp.multi_instrument else 1
-    reverb_module = ReverbModules(num_reverb=num_reverb,
-                                  reverb_length=hp.reverb_length)
+
+    #reverb_effect = ddsp.effects.FilteredNoiseReverb(trainable=False,
+    #                                          reverb_length=hp.reverb_length,
+    #                                          n_frames=500,
+    #                                          n_filter_banks=32,
+    #                                          initial_bias=-4.0,
+    #                                          name='filtered_noise_reverb')
+
+    reverb_effect = ddsp.effects.Reverb(trainable=False, reverb_length=hp.reverb_length)
+    reverb_module = ReverbModules(num_reverb=num_reverb, reverb_effect=reverb_effect, reverb_length=hp.reverb_length)
   else:
     reverb_module = None
 

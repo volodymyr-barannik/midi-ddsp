@@ -42,20 +42,12 @@ class ReverbModules(tfk.Model):
   An unique reverb parameter is used for each instrument id.
   """
 
-  def __init__(self, num_reverb=1, reverb_length=48000, use_filtered_noise_reverb=True):
+  def __init__(self, reverb_effect, reverb_length, num_reverb=1):
     super().__init__()
     self.num_reverb = num_reverb
+    self.reverb = reverb_effect
     self.reverb_length = reverb_length
 
-    if use_filtered_noise_reverb:
-        self.reverb = ddsp.effects.FilteredNoiseReverb(trainable=False,
-                                                       reverb_length=reverb_length,
-                                                       n_frames=500,
-                                                       n_filter_banks=32,
-                                                       initial_bias=-4.0,
-                                                       name='filtered_noise_reverb')
-    else:
-        self.reverb = ddsp.effects.Reverb(trainable=False, reverb_length=reverb_length)
 
     initializer = tf.random_normal_initializer(mean=0, stddev=1e-6)
     self.magnitudes_embedding = tfkl.Embedding(num_reverb, reverb_length, embeddings_initializer=initializer)
