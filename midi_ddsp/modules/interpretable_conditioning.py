@@ -118,7 +118,11 @@ def get_vibrato_feature(pitch_deviation,
   vibrato_extend = tf.gather_nd(s_vibrato, vibrato_rate_idx[:, tf.newaxis],
                                 batch_dims=1)
   # replace nan caused by rfft zeros with 0
-  vibrato_extend = tf.where(tf.math.is_nan(vibrato_extend), 0, vibrato_extend)
+
+  print(type(vibrato_extend))
+  vibrato_extend_is_nan = tf.math.is_nan(vibrato_extend)
+  zero_tensor = tf.constant(0.0, dtype=vibrato_extend.dtype)
+  vibrato_extend = tf.where(vibrato_extend_is_nan, zero_tensor, vibrato_extend)
 
   # filter out vibrato between 3-9 hz
   vibrato_mask = tf.math.logical_and(vibrato_rate >= vibrato_rate_min,
@@ -132,8 +136,7 @@ def get_vibrato_feature(pitch_deviation,
                                      min_note_length)
 
   # vibrato more than one cycle
-  more_than_one_cycle_mask = vibrato_rate > tf.math.divide_no_nan(
-    1., tf.reshape(each_note_len, [-1]) * sampling_interval)
+  more_than_one_cycle_mask = vibrato_rate > tf.math.divide_no_nan(1., tf.reshape(each_note_len, [-1]) * sampling_interval)
   vibrato_mask = tf.math.logical_and(vibrato_mask, more_than_one_cycle_mask)
   vibrato_mask = tf.cast(vibrato_mask, tf.float32)
 
