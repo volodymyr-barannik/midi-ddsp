@@ -16,7 +16,7 @@
 
 import tensorflow as tf
 import ddsp
-from midi_ddsp.utils.audio_io import tf_log_mel
+from midi_ddsp.utils.audio_io import tf_log_mel, extract_f0
 from midi_ddsp.data_handling.instrument_name_utils import NUM_INST
 from ddsp.training import nn
 from ddsp.spectral_ops import F0_RANGE, DB_RANGE
@@ -35,7 +35,7 @@ class MelF0LDEncoder(tfk.Model):
   """
 
   def __init__(self, cnn, nhid, sample_rate, win_length, hop_length, n_fft,
-               num_mels, fmin):
+               num_mels, fmin, extract_f0=False):
     super().__init__()
     self.nhid = nhid
     self.cnn = cnn
@@ -55,7 +55,11 @@ class MelF0LDEncoder(tfk.Model):
     self.num_mels = num_mels
     self.fmin = fmin
 
+    self.extract_f0 = extract_f0
+
   def call(self, inputs, training=False):
+
+    print("MelF0LDEncoder.__call__()")
 
     mel = tf_log_mel(inputs['audio'],
                      self.sample_rate,
@@ -71,7 +75,9 @@ class MelF0LDEncoder(tfk.Model):
     instrument_z = tf.tile(self.instrument_emb(inputs['instrument_id'])[:, tf.newaxis, :],
                            [1, z_cnn.shape[1], 1])
 
-    print(f"instrument_z.shape={instrument_z.shape}")
+    if self.extract_f0:
+      inputs['f0_hz'] = extract_f0(inputs['audio'].numpy(), sr=self.sample_rate)
+
     x = tf.concat([ddsp.core.hz_to_midi(inputs['f0_hz']) / F0_RANGE,
                    inputs['loudness_db'] / DB_RANGE], -1)
 
@@ -111,6 +117,7 @@ class FCHarmonicDecoder(tfk.Model):
     return synth_params
 
   def call(self, inputs):
+    print("FCHarmonicDecoder.__call__()")
     synth_params = self.get_synth_params(inputs)
 
     return synth_params
@@ -253,6 +260,7 @@ class Cnn8(tfk.Model):
     x = self.dropout(x, training=training)
     x = self.conv_block4(x, pool_type='avg', training=training)
     x = self.dropout(x, training=training)
-    x = tf.reshape(x, [x.shape[0], x.shape[1], -1])
+    x_dynamic_shape = tf.shape(x)
+    x = tf.reshape(x, [x_dynamic_shape[0], x_dynamic_shape[1], -1])
 
     return x

@@ -65,7 +65,7 @@ class ExpressionGenerator(TwoLayerCondAutoregRNN, tf.keras.Model, ABC):
   def autoregressive(self, cond, training=False):
     note_pitch = cond['note_pitch'][..., tf.newaxis]
     cond = self.encode_cond(cond, training=training)
-    batch_size = cond.shape[0]
+    batch_size = tf.shape(cond)[0]
     length = cond.shape[1]
     prev_out = tf.tile([[0.0]], [batch_size, self.n_out])[:, tf.newaxis,
                :]  # go_frame

@@ -142,6 +142,7 @@ class hparams_debug:
   nhid = 256
   sequence_length = 1000
   train_synth_coder_first = True
+  vst_inference_mode = False
   midi_audio_loss = True
   add_synth_loss = False
   synth_params_loss = False

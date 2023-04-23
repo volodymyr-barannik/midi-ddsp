@@ -27,7 +27,7 @@ from midi_ddsp.modules.synth_params_decoder import MidiToSynthAutoregDecoder, \
   MidiNoiseToHarmonicDecoder
 from midi_ddsp.modules.midi_decoder import ExpressionMidiDecoder, \
   MidiDecoder
-
+from midi_ddsp.utils.inference_utils import get_process_group
 
 
 def get_midi_decoder(hp):
@@ -119,29 +119,39 @@ def get_synthesis_generator(hp):
 
   midi_decoder = get_midi_decoder(hp)
 
-  if hp.reverb:
-    num_reverb = NUM_INST if hp.multi_instrument else 1
-
-    #reverb_effect = ddsp.effects.FilteredNoiseReverb(trainable=False,
-    #                                          reverb_length=hp.reverb_length,
-    #                                          n_frames=500,
-    #                                          n_filter_banks=32,
-    #                                          initial_bias=-4.0,
-    #                                          name='filtered_noise_reverb')
-
-    reverb_effect = ddsp.effects.Reverb(trainable=False, reverb_length=hp.reverb_length)
-    reverb_module = ReverbModules(num_reverb=num_reverb, reverb_effect=reverb_effect, reverb_length=hp.reverb_length)
-  else:
+  if hp.vst_inference_mode is True:
     reverb_module = None
+  else:
+    if hp.reverb:
+      num_reverb = NUM_INST if hp.multi_instrument else 1
+
+      #reverb_effect = ddsp.effects.FilteredNoiseReverb(trainable=False,
+      #                                          reverb_length=hp.reverb_length,
+      #                                          n_frames=500,
+      #                                          n_filter_banks=32,
+      #                                          initial_bias=-4.0,
+      #                                          name='filtered_noise_reverb')
+
+      reverb_effect = ddsp.effects.Reverb(trainable=False, reverb_length=hp.reverb_length)
+      reverb_module = ReverbModules(num_reverb=num_reverb, reverb_effect=reverb_effect, reverb_length=hp.reverb_length)
+    else:
+      reverb_module = None
+
+  if hp.vst_inference_mode is True:
+    processor_group = None
+  else:
+    processor_group = get_process_group(hp.sequence_length, hp.frame_size, hp.sample_rate, use_angular_cumsum=False)
 
   model = MIDIExpressionAE(
     synth_coder=synth_coder,
     midi_decoder=midi_decoder,
+    processor_group=processor_group,
     n_frames=hp.sequence_length,
     frame_size=hp.frame_size,
     sample_rate=hp.sample_rate,
     reverb_module=reverb_module,
-    use_f0_ld=use_f0_ld
+    use_f0_ld=use_f0_ld,
+    vst_inference_mode=hp.vst_inference_mode,
   )
 
   return model

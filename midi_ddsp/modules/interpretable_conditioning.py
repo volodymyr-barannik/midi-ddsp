@@ -20,6 +20,25 @@ import ddsp.training
 import math
 
 
+def normalize_synth_params(synth_params, log_scale=True, stop_gradient=False):
+  """Get harmonic synth controls from the outputs of the processor group."""
+  f0 = synth_params['f0_hz']
+  amps = synth_params['amplitudes']
+  hd = synth_params['harmonic_distribution']
+  noise = synth_params['noise_magnitudes']
+
+  if log_scale:
+    amps = ddsp.core.amplitude_to_db(amps, use_tf=True)
+    noise = ddsp.core.amplitude_to_db(noise, use_tf=True)
+
+  if stop_gradient:
+    amps = tf.stop_gradient(amps)
+    hd = tf.stop_gradient(hd)
+    noise = tf.stop_gradient(noise)
+
+  return f0, amps, hd, noise
+
+
 def extract_harm_controls(synth_params, log_scale=True, stop_gradient=False):
   """Get harmonic synth controls from the outputs of the processor group."""
   f0 = synth_params['harmonic']['controls']['f0_hz']
@@ -45,8 +64,7 @@ def get_pitch_deviation(f0_midi, f0, mask_large_diff=True):
   f0_midi_scale = ddsp.core.hz_to_midi(f0)
   pitch_deviation = f0_midi_midi_scale - f0_midi_scale
   if mask_large_diff:
-    pitch_deviation = tf.where(tf.greater(tf.abs(pitch_deviation), 2.0), 0.0,
-                               pitch_deviation)
+    pitch_deviation = tf.where(tf.greater(tf.abs(pitch_deviation), 2.0), 0.0, pitch_deviation)
   return pitch_deviation
 
 
@@ -85,38 +103,36 @@ def get_vibrato_feature(pitch_deviation,
                         min_note_length=50,
                         vibrato_rate_min=3,
                         vibrato_rate_max=9):
-  batch_size = pitch_deviation.shape[0]
-  total_length = pitch_deviation.shape[1]
-  pitch_deviation_masked = note_mask * pitch_deviation
-  pv_mean = ddsp.training.nn.pool_over_notes(pitch_deviation, note_mask,
-                                             return_std=False)
-  pitch_deviation_masked = note_mask * (
-        pitch_deviation_masked - pv_mean)  # filter out DC component
 
-  each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0),
-                                                         tf.float32)
+  batch_size = tf.shape(pitch_deviation)[0]
+  total_length = tf.shape(pitch_deviation)[1]
+  pitch_deviation_masked = note_mask * pitch_deviation
+  pv_mean = ddsp.training.nn.pool_over_notes(pitch_deviation, note_mask, return_std=False)
+  pitch_deviation_masked = note_mask * (pitch_deviation_masked - pv_mean)  # filter out DC component
+
+  each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0), tf.float32)
   each_note_len = tf.reduce_sum(note_mask, axis=1, keepdims=True)
   each_note_time_ratio = each_note_idx / each_note_len
   window = get_normal_window(each_note_time_ratio)
   pitch_deviation_masked *= window
 
   # [batch_size*max_regions, n_frames]
-  pitch_deviation_masked = tf.reshape(
-    tf.transpose(pitch_deviation_masked, [0, 2, 1]), [-1, total_length])
+  pitch_deviation_masked = tf.reshape(tf.transpose(pitch_deviation_masked, [0, 2, 1]), [-1, total_length])
 
   T = sampling_interval
   N = pitch_deviation.shape[1]
   f = tf.linspace(0, int(1 / T), N)
 
+  # pad the pitch_deviation_masked because rfft in tflite accepts only powers of two
+
   s_vibrato = tf.abs(tf.signal.rfft(pitch_deviation_masked))
-  s_vibrato = tf.math.divide_no_nan(s_vibrato,
-                                    tf.reshape(each_note_len, [-1, 1]))
+  print(f"tf.shape(pitch_deviation_masked)={tf.shape(pitch_deviation_masked)}")
+  s_vibrato = tf.math.divide_no_nan(s_vibrato, tf.reshape(each_note_len, [-1, 1]))
 
   vibrato_rate_idx = tf.argmax(tf.cast(s_vibrato, tf.float32), -1)
 
   vibrato_rate = tf.cast(tf.gather(f, vibrato_rate_idx), tf.float32)
-  vibrato_extend = tf.gather_nd(s_vibrato, vibrato_rate_idx[:, tf.newaxis],
-                                batch_dims=1)
+  vibrato_extend = tf.gather_nd(s_vibrato, vibrato_rate_idx[:, tf.newaxis], batch_dims=1)
   # replace nan caused by rfft zeros with 0
 
   print(type(vibrato_extend))
@@ -143,54 +159,42 @@ def get_vibrato_feature(pitch_deviation,
   # construct output
   vibrato_extend = vibrato_mask * vibrato_extend
   vibrato_rate = vibrato_mask * vibrato_rate
-  frame_wise_vibrato_rate = tf.reduce_sum(
-    tf.reshape(vibrato_rate, [batch_size, 1, -1]) * note_mask, axis=-1,
-    keepdims=True)
-  frame_wise_vibrato_extend = tf.reduce_sum(
-    tf.reshape(vibrato_extend, [batch_size, 1, -1]) * note_mask, axis=-1,
-    keepdims=True)
+  frame_wise_vibrato_rate = tf.reduce_sum(tf.reshape(vibrato_rate, [batch_size, 1, -1]) * note_mask, axis=-1, keepdims=True)
+  frame_wise_vibrato_extend = tf.reduce_sum(tf.reshape(vibrato_extend, [batch_size, 1, -1]) * note_mask, axis=-1, keepdims=True)
 
   return frame_wise_vibrato_rate, frame_wise_vibrato_extend
 
 
 def get_amplitudes_max_pos(amplitudes, note_mask):
-  note_mask_reverse = tf.cast(tf.logical_not(tf.cast(note_mask, tf.bool)),
-                              tf.float32)
+  note_mask_reverse = tf.cast(tf.logical_not(tf.cast(note_mask, tf.bool)), tf.float32)
   amplitudes_masked = note_mask * amplitudes + note_mask_reverse * -1000
   # multiply -1000 here preventing argmax to the mask
-  each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0),
-                                                         tf.float32)
+  each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0), tf.float32)
   each_note_len = tf.reduce_max(each_note_idx, axis=1, keepdims=True)
   note_onset_index = tf.argmax(note_mask, axis=1)
 
   # index inside a note that achieves max amplitudes
   amplitudes_max_idx = tf.argmax(amplitudes_masked, axis=1) - note_onset_index
-  amplitudes_max_pos = tf.math.divide_no_nan(
-    tf.cast(amplitudes_max_idx[:, tf.newaxis, :], tf.float32), each_note_len)
-  amplitudes_max_pos = tf.reduce_sum(amplitudes_max_pos * note_mask, axis=-1,
-                                     keepdims=True)
+  amplitudes_max_pos = tf.math.divide_no_nan(tf.cast(amplitudes_max_idx[:, tf.newaxis, :], tf.float32), each_note_len)
+  amplitudes_max_pos = tf.reduce_sum(amplitudes_max_pos * note_mask, axis=-1, keepdims=True)
   return amplitudes_max_pos
 
 
 def get_attack_level(noise_level, note_mask):
-  each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0),
-                                                         tf.float32)
-  attack_mask = tf.cast(tf.logical_and(each_note_idx > 0, each_note_idx <= 10),
-                        tf.float32)  # pool over first 10 frames
+  each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0), tf.float32)
+  attack_mask = tf.cast(tf.logical_and(each_note_idx > 0, each_note_idx <= 10), tf.float32)  # pool over first 10 frames
   # [b, n, d]
   attack_notes_mean = ddsp.training.nn.get_note_moments(noise_level,
                                                         attack_mask,
                                                         return_std=False)
   # [b, t, n, d]
-  attack_time_notes_mean = (attack_notes_mean[:, tf.newaxis, ...] *
-                            note_mask[..., tf.newaxis])
+  attack_time_notes_mean = (attack_notes_mean[:, tf.newaxis, ...] * note_mask[..., tf.newaxis])
   # [b, t, d]
   attack_level = tf.reduce_sum(attack_time_notes_mean, axis=2)
   return attack_level
 
 
-def get_interpretable_conditioning(f0_midi, f0, amplitude,
-                                   harmonic_distribution, noise_magnitudes):
+def get_interpretable_conditioning(f0_midi, f0, amplitude, harmonic_distribution, noise_magnitudes):
   """Calculate conditioning from synthesis needed for
   calculating note expression controls."""
   pitch_deviation = get_pitch_deviation(f0_midi, f0)
@@ -213,7 +217,7 @@ def adsr_get_note_mask(q_pitch, max_regions=200, note_on_only=True):
   and last few frames (D+R) of a note.
 
   Each transition of the value creates a new region. Returns the mask of each
-  region.
+  region.`
   Args:
     q_pitch: A quantized value, such as pitch or velocity. Shape
       [batch, n_timesteps] or [batch, n_timesteps, 1].
@@ -292,24 +296,19 @@ def adsr_get_note_mask(q_pitch, max_regions=200, note_on_only=True):
   return note_mask_adsr
 
 
-def get_conditioning_dict(conditioning, q_pitch, onsets,
-                          pool_type='note_pooling'):
+def get_conditioning_dict(conditioning, q_pitch, onsets, pool_type='note_pooling'):
   """Calculate note expression controls."""
   # conditioning: dict of conditioning
   if pool_type == 'note_pooling':
-    note_mask = ddsp.training.nn.get_note_mask_from_onset(q_pitch, onsets)
+    note_mask = ddsp.training.nn.get_note_mask_from_onset(q_pitch, onsets, max_regions=128)
   elif pool_type == 'adsr_note_pooling':
     note_mask = adsr_get_note_mask(q_pitch)
 
-  amp_mean, amp_std = ddsp.training.nn.pool_over_notes(
-    conditioning['amplitude'], note_mask, return_std=True)
-  brightness = ddsp.training.nn.pool_over_notes(conditioning['brightness'],
-                                                note_mask, return_std=False)
+  amp_mean, amp_std = ddsp.training.nn.pool_over_notes(conditioning['amplitude'], note_mask, return_std=True)
+  brightness = ddsp.training.nn.pool_over_notes(conditioning['brightness'], note_mask, return_std=False)
   attack_level = get_attack_level(conditioning['noise_level'], note_mask)
-  vibrato_rate, vibrato_extend = get_vibrato_feature(
-    conditioning['pitch_deviation'], note_mask)
-  amplitudes_max_pos = get_amplitudes_max_pos(conditioning['amplitude'],
-                                              note_mask)
+  vibrato_rate, vibrato_extend = get_vibrato_feature(conditioning['pitch_deviation'], note_mask)
+  amplitudes_max_pos = get_amplitudes_max_pos(conditioning['amplitude'], note_mask)
 
   # scale conditioning so that most value are in [0, 1]
   # TODO: (yusongwu) enable automatic scaling
@@ -317,8 +316,7 @@ def get_conditioning_dict(conditioning, q_pitch, onsets,
   amp_std *= (2.5 / 60)
   vibrato_extend *= 10
   brightness *= 5
-  attack_level = tf.where(tf.equal(attack_level, 0.0), 0.0,
-                          attack_level / 40 + 2.625)
+  attack_level = tf.where(tf.equal(attack_level, 0.0), 0.0, attack_level / 40 + 2.625)
 
   conditioning_dict = {
     'volume': amp_mean,

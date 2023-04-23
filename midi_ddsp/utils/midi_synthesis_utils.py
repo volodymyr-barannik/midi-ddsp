@@ -198,7 +198,7 @@ def synthesize_bach(synthesis_generator, expression_generator, midi_file,
       instrument_id_all)
 
   # Save the stem audios.
-  for i in range(midi_audio.shape[0]):
+  for i in range(tf.shape(midi_audio)[0]):
     midi_audio_all.append(midi_audio[i].numpy())
     save_wav(midi_audio[i].numpy(),
              os.path.join(save_dir, f'{part_name_all[i]}.wav'), 16000)
@@ -297,8 +297,7 @@ def fill_conditioning_df_with_mean(conditioning_df, note_expression_stat,
 def conditioning_df_to_f0_ld(conditioning_df, instrument_id, ld):
   """Convert a conditioning_df to f0 and loudness contour.
   Used for ablation test."""
-  q_pitch, _, _, onsets, offsets = conditioning_df_to_midi_features(
-    conditioning_df)
+  q_pitch, _, _, onsets, offsets = conditioning_df_to_midi_features(conditioning_df)
   f0 = ddsp.core.midi_to_hz(q_pitch, midi_zero_silence=True)
   ld = np.ones_like(f0) * ld
   ld[q_pitch == 0] = -120

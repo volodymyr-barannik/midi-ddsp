@@ -54,10 +54,11 @@ def ensure_same_length(data_all, axis=1):
 def make_same_length(src, dst):
   """Make src the same length as the dst."""
   length = dst.shape[1]
-  if src.shape[1] > length:
+  src_dynamic_shape = tf.shape(src)
+  if src_dynamic_shape[1] > length:
     return src[:, :length, ...]
   else:
-    pad_shape = [src.shape[0], length - src.shape[1]] + src.shape[2:]
+    pad_shape = [src_dynamic_shape[0], length - src_dynamic_shape[1]] + src_dynamic_shape[2:]
     return tf.concat([src, tf.zeros(pad_shape, dtype=src.dtype)], 1)
 
 
@@ -104,7 +105,7 @@ def expression_generator_output_to_conditioning_df(expression_generator_outputs,
   conditioning_dict_keys = CONDITIONING_KEYS
   data_all = []
   onset = 0
-  for i in range(expression_generator_outputs.shape[0]):
+  for i in range(tf.shape(expression_generator_outputs)[0]):
     pitch = expression_generator_cond['note_pitch'][0, i].numpy()
     length = int(round(expression_generator_cond['note_length'][
                          0, i, 0].numpy() / frame_size))
@@ -213,8 +214,7 @@ def conditioning_df_to_dict(conditioning_df, length=None):
 
 def get_process_group(n_frames, frame_size=64, sample_rate=16000,
                       use_angular_cumsum=True):
-  harmonic_synth = ddsp.synths.Harmonic(n_frames * frame_size, sample_rate,
-                                        use_angular_cumsum=use_angular_cumsum)
+  harmonic_synth = ddsp.synths.Harmonic(n_frames * frame_size, sample_rate, use_angular_cumsum=use_angular_cumsum)
   noise_synth = ddsp.synths.FilteredNoise(n_frames * frame_size, sample_rate)
   add = ddsp.processors.Add(name='add')
   # Create ProcessorGroup.

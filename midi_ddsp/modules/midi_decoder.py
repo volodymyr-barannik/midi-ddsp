@@ -63,9 +63,9 @@ class ExpressionMidiDecoder(tfk.Model):
     self.without_note_expression = without_note_expression
     super().__init__()
 
-  def gen_params_from_cond(self, conditioning_dict, midi_features,
-                           instrument_id=None, synth_params=None,
-                           training=False, display_progressbar=False):
+  def generate_synth_params_from_interpretable_conditioning(self, interpretable_conditioning_dict, midi_features,
+                                                            instrument_id=None, synth_params=None,
+                                                            training=False, display_progressbar=False):
     q_pitch, q_vel, f0_loss_weights, onsets, offsets = midi_features
     # note-wise conditioning
 
@@ -75,8 +75,7 @@ class ExpressionMidiDecoder(tfk.Model):
                                   tf.cast(offsets, tf.float32)[..., tf.newaxis]
                                   ], -1)
     else:
-      z_conditioning = tf.stop_gradient(
-        tf.concat(list(conditioning_dict.values()), -1))
+      z_conditioning = tf.stop_gradient(tf.concat(list(interpretable_conditioning_dict.values()), -1))
       z_conditioning = tf.concat([z_conditioning,
                                   q_pitch / 127,
                                   tf.cast(onsets, tf.float32)[..., tf.newaxis],
@@ -84,20 +83,17 @@ class ExpressionMidiDecoder(tfk.Model):
                                   ], -1)
 
     if self.position_code == 'index_length':
-      note_mask = ddsp.training.nn.get_note_mask_from_onset(q_pitch, onsets)
-      each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0),
-                                                             tf.float32)
-      each_note_len = tf.reduce_max(each_note_idx, axis=1,
-                                    keepdims=True) * tf.cast(each_note_idx > 0,
-                                                             tf.float32)
+      note_mask = ddsp.training.nn.get_note_mask_from_onset(q_pitch, onsets, max_regions=128)
+      each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0), tf.float32)
+      each_note_len = tf.reduce_max(each_note_idx, axis=1, keepdims=True) * tf.cast(each_note_idx > 0, tf.float32)
       each_note_idx = tf.reduce_sum(each_note_idx, axis=-1)[..., tf.newaxis]
       each_note_len = tf.reduce_sum(each_note_len, axis=-1)[..., tf.newaxis]
       relative_position = tf.math.divide_no_nan(each_note_idx, each_note_len)
       z_conditioning = tf.concat([z_conditioning, relative_position], -1)
+
     elif self.position_code == 'sinusoidal':
-      note_mask = ddsp.training.nn.get_note_mask_from_onset(q_pitch, onsets)
-      each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0),
-                                                             tf.float32)
+      note_mask = ddsp.training.nn.get_note_mask_from_onset(q_pitch, onsets, max_regions=128)
+      each_note_idx = tf.cumsum(note_mask, axis=1) * tf.cast(~(note_mask == 0), tf.float32)
       each_note_idx = tf.reduce_sum(each_note_idx, axis=-1)[..., tf.newaxis]
       pos_code = positional_encoding(each_note_idx.numpy().astype(np.int64), 64)
       z_conditioning = tf.concat([z_conditioning, pos_code], -1)
@@ -105,57 +101,56 @@ class ExpressionMidiDecoder(tfk.Model):
     # --- Precondition
     z_midi_decoder = self.z_preconditioning_stack(z_conditioning)
     if self.multi_instrument:
-      instrument_z = tf.tile(
-        self.instrument_emb(instrument_id)[:, tf.newaxis, :],
-        [1, z_midi_decoder.shape[1], 1])
+      instrument_z = tf.tile(self.instrument_emb(instrument_id)[:, tf.newaxis, :], [1, z_midi_decoder.shape[1], 1])
       z_midi_decoder = tf.concat([z_midi_decoder, instrument_z], -1)
 
     # --- MIDI Decoding
     if self.decoder_type == 'dilated_conv':
       params_pred = self.decoder(q_pitch, q_vel, z_midi_decoder)
+
     elif self.decoder_type == 'noise_dilated_conv':
-      noise = tf.random.normal(
-        [z_midi_decoder.shape[0], z_midi_decoder.shape[1], 100])
+      z_midi_decoder_shape = tf.shape(z_midi_decoder)
+      noise = tf.random.normal([z_midi_decoder_shape[0], z_midi_decoder_shape[1], 100])
       params_pred = self.decoder(noise, q_pitch, z_midi_decoder)
+
     elif 'rnn' in self.decoder_type:
-      params_pred = self.decoder(q_pitch, z_midi_decoder, conditioning_dict,
+      params_pred = self.decoder(q_pitch, z_midi_decoder, interpretable_conditioning_dict,
                                  out=synth_params, training=training,
                                  display_progressbar=display_progressbar)
     # midi_decoder: [q_pitch, z_midi_decoder] -> synth params
     return z_midi_decoder, params_pred
 
-  def gen_cond_dict(self, synth_params_normalized, midi_features):
+  # Extracts brigtness, attack and other stuff from synth params
+  def gen_interpretable_conditioning_dict(self, synth_params_normalized, midi_features):
     f0, amps, hd, noise = synth_params_normalized
     q_pitch, q_vel, f0_loss_weights, onsets, offsets = midi_features
 
     f0_midi_gt = ddsp.core.midi_to_hz(q_pitch, midi_zero_silence=True)
-    conditioning = get_interpretable_conditioning(f0_midi_gt, f0, amps, hd,
-                                                  noise)
+    # brightness and so on
+    conditioning = get_interpretable_conditioning(f0_midi_gt, f0, amps, hd, noise)
 
     # --- Z Note Encoding
-    conditioning_dict = get_conditioning_dict(conditioning, q_pitch, onsets,
-                                              pool_type='note_pooling')
+    conditioning_dict = get_conditioning_dict(conditioning, q_pitch, onsets, pool_type='note_pooling')
     return conditioning_dict
 
-  def call(self, features, synth_params_normalized, midi_features,
-           training=False, synth_params=None):
-    conditioning_dict = self.gen_cond_dict(synth_params_normalized,
-                                           midi_features)
+  def call(self, features, synth_params_normalized, midi_features, training=False, synth_params=None):
+
+    interpretable_conditioning_dict = self.gen_interpretable_conditioning_dict(synth_params_normalized, midi_features)
 
     instrument_id = features['instrument_id'] if self.multi_instrument else None
+
     if self.decoder_type == 'rnn_f0_ld':
       synth_params = features
-    z_midi_decoder, params_pred = self.gen_params_from_cond(conditioning_dict,
-                                                            midi_features,
-                                                            instrument_id=
-                                                            instrument_id,
-                                                            synth_params=
-                                                            synth_params,
-                                                            training=training)
+
+    z_midi_decoder, params_pred = self.generate_synth_params_from_interpretable_conditioning(interpretable_conditioning_dict,
+                                                                                             midi_features,
+                                                                                             instrument_id=instrument_id,
+                                                                                             synth_params=synth_params,
+                                                                                             training=training)
 
     params_pred['z_midi_decoder'] = z_midi_decoder
 
-    return conditioning_dict, params_pred
+    return interpretable_conditioning_dict, params_pred
 
 
 class MidiDecoder(tfk.Model):

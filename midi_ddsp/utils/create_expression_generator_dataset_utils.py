@@ -99,14 +99,14 @@ def get_piece_note_features(data, conditioning):
         conditioning['noise_level'][0, on:min(off + 1, on + 10), :])
 
       pv = conditioning['pitch_deviation'][0, on:off + 1, :]
-      note_mask = tf.ones([1, pv.shape[0], 1])
+      note_mask = tf.ones([1, tf.shape(pv)[0], 1])
       note_mask_pad = to_length(note_mask, dst_length=1000)
       pv_pad = to_length(pv[tf.newaxis, ...], dst_length=1000)
       _, frame_wise_vibrato_extend = get_vibrato_feature(pv_pad, note_mask_pad)
       vibrato_extend = frame_wise_vibrato_extend[0, 0, 0].numpy()
 
       amps = conditioning['amplitude'][0, on:off + 1, :]
-      note_mask = tf.ones([1, pv.shape[0], 1])
+      note_mask = tf.ones([1, tf.shape(pv)[0], 1])
       note_mask_pad = to_length(note_mask, dst_length=1000)
       amps_pad = to_length(amps[tf.newaxis, ...], dst_length=1000)
       amplitudes_max_pos = get_amplitudes_max_pos(amps_pad, note_mask_pad)

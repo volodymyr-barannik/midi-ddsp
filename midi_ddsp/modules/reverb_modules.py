@@ -53,7 +53,7 @@ class ReverbModules(tfk.Model):
     self.magnitudes_embedding = tfkl.Embedding(num_reverb, reverb_length, embeddings_initializer=initializer)
 
   def call(self, audio, reverb_number=0, training=False):
-    batch_size = audio.shape[0]
+    batch_size = tf.shape(audio)[0]
     if isinstance(reverb_number, int):
       reverb_number = tf.repeat(tf.constant([reverb_number], dtype=tf.int64), batch_size)
 

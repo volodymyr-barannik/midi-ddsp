@@ -181,7 +181,7 @@ def synthesize_midi(synthesis_generator, expression_generator, midi_file,
     midi_synth_params = midi_synth_params['inputs']
     conditioning_df_all_for_save = {}
     instrument_id_all_for_save = {}
-    for i in range(midi_audio.shape[0]):
+    for i in range(tf.shape(midi_audio)[0]):
       part_number = part_synth_by_model[i]
 
       # align audio with part number

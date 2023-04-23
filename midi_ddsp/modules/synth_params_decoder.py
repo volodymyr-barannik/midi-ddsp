@@ -48,45 +48,39 @@ ABSOLUTE_F0_BINS = 361
 
 
 def get_onehot_f0_dv(f0_dv):
-  f0_dv = tf.clip_by_value(f0_dv[:, :, -1], RELATIVE_F0_MIN,
-                           RELATIVE_F0_MAX) - RELATIVE_F0_MIN
+  f0_dv = tf.clip_by_value(f0_dv[:, :, -1], RELATIVE_F0_MIN, RELATIVE_F0_MAX) - RELATIVE_F0_MIN
   f0_dv = tf.cast(f0_dv / RELATIVE_F0_STEP, tf.int64)
   f0_dv_onehot = tf.one_hot(f0_dv, RELATIVE_F0_BINS)
   return f0_dv_onehot
 
 
 def get_onehot_ld(ld):
-  ld = tf.clip_by_value(ld[:, :, -1], ABSOLUTE_LD_MIN,
-                        ABSOLUTE_LD_MAX) - ABSOLUTE_LD_MIN
+  ld = tf.clip_by_value(ld[:, :, -1], ABSOLUTE_LD_MIN, ABSOLUTE_LD_MAX) - ABSOLUTE_LD_MIN
   ld = tf.cast(ld / ABSOLUTE_LD_STEP, tf.int64)
   ld_onehot = tf.one_hot(ld, ABSOLUTE_LD_BINS)
   return ld_onehot
 
 
 def get_float_f0_dv(f0_dv_onehot):
-  f0_dv = tf.cast(tf.argmax(f0_dv_onehot, axis=-1) /
-                  ONE_OVER_RELATIVE_F0_STEP + RELATIVE_F0_MIN,
+  f0_dv = tf.cast((tf.argmax(f0_dv_onehot, axis=-1) / ONE_OVER_RELATIVE_F0_STEP) + RELATIVE_F0_MIN,
                   tf.float32)
   return f0_dv[..., tf.newaxis]
 
 
 def get_float_ld(ld_onehot):
-  ld = tf.cast(tf.argmax(ld_onehot, axis=-1) /
-               ONE_OVER_ABSOLUTE_LD_STEP + ABSOLUTE_LD_MIN,
+  ld = tf.cast((tf.argmax(ld_onehot, axis=-1) / ONE_OVER_ABSOLUTE_LD_STEP) + ABSOLUTE_LD_MIN,
                tf.float32)
   return ld[..., tf.newaxis]
 
 
 def get_float_absolute_f0(f0_midi_onehot):
-  f0_midi = tf.cast(tf.argmax(f0_midi_onehot, axis=-1) /
-                    ONE_OVER_ABSOLUTE_F0_STEP + ABSOLUTE_LD_MIN,
+  f0_midi = tf.cast((tf.argmax(f0_midi_onehot, axis=-1) / ONE_OVER_ABSOLUTE_F0_STEP) + ABSOLUTE_LD_MIN,
                     tf.float32)
   return f0_midi[..., tf.newaxis]
 
 
 def get_onehot_absolute_f0(f0_midi):
-  f0_midi = tf.clip_by_value(f0_midi[:, :, -1], ABSOLUTE_F0_MIN,
-                             ABSOLUTE_F0_MAX) - ABSOLUTE_F0_MIN
+  f0_midi = tf.clip_by_value(f0_midi[:, :, -1], ABSOLUTE_F0_MIN, ABSOLUTE_F0_MAX) - ABSOLUTE_F0_MIN
   f0_midi = tf.cast(f0_midi / ABSOLUTE_F0_STEP, tf.int64)
   f0_midi_onehot = tf.one_hot(f0_midi, ABSOLUTE_F0_BINS)
   return f0_midi_onehot
@@ -96,8 +90,7 @@ def top_p_sample(logits, p=0.95):
   logits_sort = tf.sort(logits, direction='DESCENDING', axis=-1)
   probs_sort = tf.nn.softmax(logits_sort)
   probs_sums = tf.cumsum(probs_sort, axis=1, exclusive=True)
-  logits_masked = tf.where(probs_sums < p, logits_sort,
-                           tf.ones_like(logits_sort) * 1000)
+  logits_masked = tf.where(probs_sums < p, logits_sort, tf.ones_like(logits_sort) * 1000)
   min_logits = tf.reduce_min(input_tensor=logits_masked, axis=1, keepdims=True)
   logits = tf.where(
     logits < min_logits,
@@ -108,7 +101,7 @@ def top_p_sample(logits, p=0.95):
 
 
 def sample_from(logits, return_onehot=False, sample_method='top_p'):
-  original_shape = logits.shape
+  original_shape = tf.shape(logits)
   num_class = logits.shape[-1]
   if sample_method == 'argmax':
     value = tf.argmax(tf.reshape(logits, [-1, num_class]), axis=-1)
@@ -136,7 +129,9 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
       input_dropout_p=0.5,
       dropout=dropout,
     )
-    self.birnn = tfkl.Bidirectional(tfkl.GRU(
+    #v.barannik
+    # it was GRU actually
+    self.birnn = tfkl.Bidirectional(tfkl.LSTM(
       units=nhid, return_sequences=True, dropout=dropout
     ), )
     self.dense_out = tfkl.Dense(self.n_out)
@@ -145,7 +140,7 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
 
   def split_teacher_force_output(self, output):
     f0_midi_dv_logits = output
-    f0_midi_dv_onehot = get_onehot_f0_dv(get_float_f0_dv(f0_midi_dv_logits))
+    f0_midi_dv_onehot = get_onehot_f0_dv(get_float_f0_dv(output))
     output = {
       'f0_midi_dv_onehot': f0_midi_dv_onehot,
       'f0_midi_dv_logits': f0_midi_dv_logits,
@@ -175,25 +170,29 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
     return output
 
   def preprocess(self, q_pitch, out):
+    print("MidiExpreToF0AutoregDecoder.preprocess()")
     f0_midi = ddsp.core.hz_to_midi(out['f0_hz'])
     f0_midi_dv = f0_midi - q_pitch  # f0 residual
     f0_dv_onehot = get_onehot_f0_dv(f0_midi_dv)
     return f0_dv_onehot
 
   def postprocess(self, outputs, q_pitch, training=False):
+    print("MidiExpreToF0AutoregDecoder.postprocess()")
     outputs['f0_midi_dv'] = get_float_f0_dv(outputs['f0_midi_dv_onehot'])
     outputs['f0_midi'] = outputs['f0_midi_dv'] + q_pitch
     outputs['f0_hz'] = ddsp.core.midi_to_hz(outputs['f0_midi'])
     return outputs
 
+  @tf.function()
   def call(self, q_pitch, z_midi_decoder, conditioning_dict, out=None,
            training=False, display_progressbar=False):
+    print(f"MidiExpreToF0AutoregDecoder.call(), training={training}")
     if training:
       out = self.preprocess(q_pitch, out)
       outputs = self.teacher_force(z_midi_decoder, out, training=training)
     else:
-      outputs = self.autoregressive(z_midi_decoder, training=training,
-                                    display_progressbar=display_progressbar)
+      outputs = self.autoregressive(z_midi_decoder, training=training, display_progressbar=display_progressbar)
+      #outputs = self.autoregressive_original(z_midi_decoder, training=training, display_progressbar=display_progressbar)
 
     outputs = self.postprocess(outputs, q_pitch)
 
@@ -210,10 +209,10 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
       input_dropout=True,
       input_dropout_p=0.5,
       dropout=dropout,
+      rnn_type='gru'
     )
-    self.birnn = tfkl.Bidirectional(tfkl.GRU(
-      units=nhid, return_sequences=True, dropout=dropout
-    ), )
+
+    self.birnn = tfkl.Bidirectional(tfkl.GRU(units=nhid, return_sequences=True, dropout=dropout))
     self.dense_out = nn.FcStackOut(ch=nhid, layers=2, n_out=self.n_out)
     self.dense_in = nn.FcStack(ch=nhid, layers=2)
     self.norm = nn.Normalize('layer') if norm else None
@@ -225,8 +224,7 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
   def split_teacher_force_output(self, output):
     f0_midi_dv_logits = output[..., :RELATIVE_F0_BINS]
     f0_midi_dv_onehot = get_onehot_f0_dv(get_float_f0_dv(f0_midi_dv_logits))
-    ld_logits = output[...,
-                RELATIVE_F0_BINS:RELATIVE_F0_BINS + ABSOLUTE_LD_BINS]
+    ld_logits = output[..., RELATIVE_F0_BINS:RELATIVE_F0_BINS + ABSOLUTE_LD_BINS]
     ld_onehot = get_onehot_ld(get_float_ld(ld_logits))
     output = {
       'f0_midi_dv_logits': f0_midi_dv_logits,
@@ -248,11 +246,9 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
 
   def sample_out(self, out, training=False):
     f0_midi_dv_logits = out[..., :RELATIVE_F0_BINS]
-    f0_midi_dv_onehot = sample_from(f0_midi_dv_logits, return_onehot=True,
-                                    sample_method=self.sampling_method)
+    f0_midi_dv_onehot = sample_from(f0_midi_dv_logits, return_onehot=True, sample_method=self.sampling_method)
     ld_logits = out[..., RELATIVE_F0_BINS:RELATIVE_F0_BINS + ABSOLUTE_LD_BINS]
-    ld_onehot = sample_from(ld_logits, return_onehot=True,
-                            sample_method=self.sampling_method)
+    ld_onehot = sample_from(ld_logits, return_onehot=True, sample_method=self.sampling_method)
     output = {
       'f0_midi_dv_logits': f0_midi_dv_logits,
       'f0_midi_dv_onehot': f0_midi_dv_onehot,
@@ -283,7 +279,8 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
       out = self.preprocess(q_pitch, out)
       outputs = self.teacher_force(z_midi_decoder, out, training=training)
     else:
-      outputs = self.autoregressive(z_midi_decoder, training=training)
+      #outputs = self.autoregressive(z_midi_decoder, training=training)
+      outputs = self.autoregressive_original(z_midi_decoder, training=training)
 
     outputs = self.postprocess(outputs, q_pitch)
 
@@ -296,19 +293,20 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
     (Table 1 (c) in paper)"""
     # right shift and encode out
     out = self.preprocess(q_pitch, out)
-    go_frame = tf.tile([[0.0]], [out.shape[0], out.shape[-1]])[:, tf.newaxis, :]
+    out_dynamic_shape = tf.shape(out)
+    go_frame = tf.tile([[0.0]], [out_dynamic_shape[0], out_dynamic_shape[-1]])[:, tf.newaxis, :]
     out = tf.concat([go_frame, out[:, :-1, :]], 1)
     out = self.encode_out(out)
 
     cond = self.encode_cond(z_midi_decoder, training=training)
-    batch_size = cond.shape[0]
-    length = cond.shape[1]
-    prev_out = tf.tile([[0.0]], [batch_size, self.n_out])[:, tf.newaxis,
-               :]  # go_frame
+    cond_dynamic_shape = tf.shape(cond)
+    batch_size = cond_dynamic_shape[0]
+    length = cond_dynamic_shape[1]
+    prev_out = tf.tile([[0.0]], [batch_size, self.n_out])[:, tf.newaxis, :]  # go_frame
     prev_states = (None, None)
-    overall_outputs = []
+    #overall_outputs = []
 
-    teacher_force_batch_size = teacher_force_mask.shape[0]
+    teacher_force_batch_size = tf.shape(teacher_force_mask)[0]
 
     for i in tqdm(range(length), position=0, leave=True, desc='Generating: ',
                   disable=not display_progressbar):
@@ -316,8 +314,7 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
       prev_out = self.encode_out(prev_out) * (
             1 - teacher_force_mask[:, i:i + 1, :]) + \
                  out[:, i:i + 1, :] * teacher_force_mask[:, i:i + 1, :]
-      curr_out, curr_states = self._one_step(curr_cond, prev_out, prev_states,
-                                             training=training)
+      curr_out, curr_states = self._one_step(curr_cond, prev_out, prev_states, training=training)
       curr_out = self.sample_out(curr_out)
       overall_outputs.append(curr_out)
       prev_out, prev_states = curr_out['curr_out'], curr_states
@@ -417,7 +414,7 @@ class F0LDAutoregDecoder(TwoLayerCondAutoregRNN):
     return outputs
 
 
-class MidiExpreToSynthDecoder(nn.DictLayer):  # TODO: (yusongwu) merge into DDSP
+class MidiExpreToSynthDecoder(tfk.Model):  # TODO: (yusongwu) merge into DDSP
   """Predicting synthesis parameters from MIDI and note expression controls
    using only dilated convolution networks."""
   def __init__(self,
@@ -431,8 +428,7 @@ class MidiExpreToSynthDecoder(nn.DictLayer):  # TODO: (yusongwu) merge into DDSP
     """Constructor."""
     self.output_splits = output_splits
     self.n_out = sum([v[1] for v in output_splits])
-    output_keys = [v[0] for v in output_splits]
-    super().__init__(output_keys=output_keys, **kwargs)
+    super().__init__(**kwargs)
 
     # Layers.
     self.net = net
@@ -440,6 +436,7 @@ class MidiExpreToSynthDecoder(nn.DictLayer):  # TODO: (yusongwu) merge into DDSP
     self.norm = nn.Normalize('layer') if norm else None
 
   def call(self, z, training=False):
+    print("MidiExpreToSynthDecoder.__call__()")
     x = self.net(z, training=training)
 
     if self.norm is not None:
@@ -461,8 +458,9 @@ class MidiToSynthAutoregDecoder(tfk.Model):
                                        ('noise_magnitudes', 65))):
     super().__init__()
     self.q_pitch_emb = tfkl.Dense(64)
-    self.midi_to_f0 = MidiExpreToF0AutoregDecoder(nhid=nhid)
-    self.midi_f0_to_harmonic = MidiExpreToSynthDecoder(
+    #v.barannik
+    self.midi_to_f0_layer = MidiExpreToF0AutoregDecoder(nhid=nhid)
+    self.midi_f0_to_harmonic_layer = MidiExpreToSynthDecoder(
       net=nn.DilatedConvStack(
         ch=128,
         num_layers=5,
@@ -473,11 +471,14 @@ class MidiToSynthAutoregDecoder(tfk.Model):
       output_splits=hd_noise_output_splits,
     )
 
-  def call(self, q_pitch, z_midi_decoder, conditioning_dict, out=None,
+  def call(self, q_pitch, z_midi_decoder, interpretable_conditioning_dict, out=None,
            training=False, display_progressbar=False):
-    f0_output = self.midi_to_f0(q_pitch, z_midi_decoder, conditioning_dict,
-                                out=out, training=training,
-                                display_progressbar=display_progressbar)
+    print("MidiToSynthAutoregDecoder.__call__()")
+
+    # Predict f0 from interpretable conditioning (e.g. brightness, attack..) and pitch extracted from original audio
+    f0_output = self.midi_to_f0_layer(q_pitch, z_midi_decoder, interpretable_conditioning_dict,
+                                      out=out, training=training,
+                                      display_progressbar=display_progressbar)
 
     if training:
       f0_midi = ddsp.core.hz_to_midi(out['f0_hz'])
@@ -485,14 +486,16 @@ class MidiToSynthAutoregDecoder(tfk.Model):
       f0_midi = f0_output['f0_midi']
 
     z = tf.concat([z_midi_decoder, self.q_pitch_emb(f0_midi / 127)], -1)
-    outputs = self.midi_f0_to_harmonic(z, training=training)
+    outputs = self.midi_f0_to_harmonic_layer(z, training=training)
 
     outputs['f0_output'] = f0_output
     if training:
       outputs['f0_hz'] = out['f0_hz']
     else:
-      outputs['f0_hz'] = ddsp.core.midi_to_hz(f0_output['f0_midi'],
-                                             midi_zero_silence=True)
+      outputs['f0_hz'] = ddsp.core.midi_to_hz(f0_output['f0_midi'], midi_zero_silence=True)
+
+    #v.barannik
+    #outputs['f0_hz'] = f0_midi
 
     return outputs
 

@@ -75,7 +75,7 @@ def save_results(pred_batch, ref_wav_batch, log_dir, save_folder_name,
                  separate_signal=None, file_name=None, bottleneck_feature=None,
                  note=None, no_pred_suffix=False):
   """Save the evaluation results."""
-  if file_name and pred_batch.shape[0] > 1:
+  if file_name and tf.shape(pred_batch)[0] > 1:
     raise RuntimeError('Got a file name to save, but has batch_size > 1')
   pred = pred_batch.numpy()
   if ref_wav_batch is not None:
@@ -92,7 +92,7 @@ def save_results(pred_batch, ref_wav_batch, log_dir, save_folder_name,
   os.makedirs(output_features_save_dir, exist_ok=True)
   os.makedirs(separate_signal_save_dir, exist_ok=True)
   os.makedirs(spectrogram_dir, exist_ok=True)
-  for i in range(pred.shape[0]):
+  for i in range(tf.shape(pred)[0]):
 
     save_file_name = file_name if file_name else i
 
