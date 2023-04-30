@@ -140,10 +140,15 @@ def get_vibrato_feature(pitch_deviation,
 
   s_vibrato = tf.abs(tf.signal.rfft(pitch_deviation_masked))
 
+  print(f"tf.shape(s_vibrato)={tf.shape(s_vibrato)}")
+
   if original_dim != 1:
     s_vibrato = s_vibrato[:tf.cast(original_dim / 2, dtype=tf.int32)] # remove padded info
 
   print(f"tf.shape(pitch_deviation_masked)={tf.shape(pitch_deviation_masked)}")
+  print(f"tf.shape(s_vibrato)={tf.shape(s_vibrato)}")
+  print(f"tf.shape(each_note_len)={tf.shape(each_note_len)}")
+  print(f"tf.shape(tf.reshape(each_note_len, [-1, 1]))={tf.shape(tf.reshape(each_note_len, [-1, 1]))}")
   s_vibrato = tf.math.divide_no_nan(s_vibrato, tf.reshape(each_note_len, [-1, 1]))
 
   vibrato_rate_idx = tf.argmax(tf.cast(s_vibrato, tf.float32), -1)
