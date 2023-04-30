@@ -143,7 +143,7 @@ def get_vibrato_feature(pitch_deviation,
   print(f"tf.shape(s_vibrato)={tf.shape(s_vibrato)}")
 
   if original_dim != 1:
-    s_vibrato = s_vibrato[:tf.cast(original_dim / 2, dtype=tf.int32)] # remove padded info
+    s_vibrato = s_vibrato[:, :tf.cast(original_dim / 2, dtype=tf.int32)] # remove padded info
 
   print(f"tf.shape(pitch_deviation_masked)={tf.shape(pitch_deviation_masked)}")
   print(f"tf.shape(s_vibrato)={tf.shape(s_vibrato)}")
