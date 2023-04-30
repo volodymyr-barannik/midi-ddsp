@@ -129,9 +129,8 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
       input_dropout_p=0.5,
       dropout=dropout,
     )
-    #v.barannik
-    # it was GRU actually
-    self.birnn = tfkl.Bidirectional(tfkl.LSTM(
+
+    self.birnn = tfkl.Bidirectional(tfkl.GRU(
       units=nhid, return_sequences=True, dropout=dropout
     ), )
     self.dense_out = tfkl.Dense(self.n_out)
@@ -458,7 +457,7 @@ class MidiToSynthAutoregDecoder(tfk.Model):
                                        ('noise_magnitudes', 65))):
     super().__init__()
     self.q_pitch_emb = tfkl.Dense(64)
-    #v.barannik
+
     self.midi_to_f0_layer = MidiExpreToF0AutoregDecoder(nhid=nhid)
     self.midi_f0_to_harmonic_layer = MidiExpreToSynthDecoder(
       net=nn.DilatedConvStack(
@@ -493,9 +492,6 @@ class MidiToSynthAutoregDecoder(tfk.Model):
       outputs['f0_hz'] = out['f0_hz']
     else:
       outputs['f0_hz'] = ddsp.core.midi_to_hz(f0_output['f0_midi'], midi_zero_silence=True)
-
-    #v.barannik
-    #outputs['f0_hz'] = f0_midi
 
     return outputs
 

@@ -61,13 +61,20 @@ class MelF0LDEncoder(tfk.Model):
 
     print("MelF0LDEncoder.__call__()")
 
-    mel = tf_log_mel(inputs['audio'],
-                     self.sample_rate,
-                     self.win_length,
-                     self.hop_length,
-                     self.n_fft,
-                     self.num_mels,
-                     self.fmin)
+    total_number_of_samples = inputs['audio'].shape[1]
+    total_number_of_frames = inputs['f0_hz'].shape[1]
+    frame_size = total_number_of_samples // total_number_of_frames
+    win_length_in_samples = frame_size
+    hop_length_in_samples = frame_size
+
+    mel = tf_log_mel(audio=inputs['audio'],
+                     sample_rate=self.sample_rate,
+                     win_length=win_length_in_samples, # v.barannik self.win_length,
+                     hop_length=hop_length_in_samples, # v.barannik self.hop_length,
+                     n_fft=self.n_fft,
+                     num_mels=self.num_mels,
+                     fmin=self.fmin,
+                     pad_end=True)
 
     z_cnn = self.cnn(mel, training=training)
     z_reduce = self.z_fc(z_cnn)

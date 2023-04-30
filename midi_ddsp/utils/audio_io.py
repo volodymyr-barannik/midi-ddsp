@@ -128,7 +128,7 @@ def tf_stft(audio, win_length, hop_length, n_fft, pad_end=True):
 def tf_mel(audio, sample_rate, win_length, hop_length, n_fft, num_mels, fmin=40,
            pad_end=True):
   """Calculate Mel Spectrogram."""
-  mag = tf_stft(audio, win_length, hop_length, n_fft, pad_end=pad_end)
+  mag = tf_stft(audio=audio, win_length=win_length, hop_length=hop_length, n_fft=n_fft, pad_end=pad_end)
   num_spectrogram_bins = int(mag.shape[-1])
   hi_hz = sample_rate // 2
   linear_to_mel_matrix = tf.signal.linear_to_mel_weight_matrix(

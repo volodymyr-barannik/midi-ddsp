@@ -18,7 +18,7 @@ import ddsp.training
 from ddsp.training import nn
 import tensorflow as tf
 from midi_ddsp.data_handling.instrument_name_utils import NUM_INST
-from midi_ddsp.modules.model import SynthCoder, MIDIExpressionAE
+from midi_ddsp.modules.model.model import SynthCoder, MIDIExpressionAE
 from midi_ddsp.modules.ddsp_inference import MelF0LDEncoder, F0LDEncoder, \
   FCHarmonicDecoder, FCStackHarmonicDecoder, Cnn8
 from midi_ddsp.modules.reverb_modules import ReverbModules
@@ -161,7 +161,7 @@ def get_fake_data_synthesis_generator(hp):
   """Get the fake data for building the synthesis generator."""
   fake_data = {
     'audio': tf.random.normal([1, hp.sequence_length * hp.frame_size]),
-    'mel': tf.random.normal([1, hp.sequence_length, hp.num_mels]),
+    #'mel': tf.random.normal([1, hp.sequence_length, hp.num_mels]), we don't need mel, it is generated automatically
     'f0_hz': tf.random.normal([1, hp.sequence_length, 1]),
     'loudness_db': tf.random.normal([1, hp.sequence_length, 1]),
     'midi': tf.ones([1, hp.sequence_length], dtype=tf.int64),

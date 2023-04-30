@@ -19,7 +19,7 @@ import ddsp
 import ddsp.training
 
 from midi_ddsp.utils.inference_utils import get_process_group
-from .interpretable_conditioning import normalize_synth_params, extract_harm_controls
+from midi_ddsp.modules.interpretable_conditioning import normalize_synth_params
 
 
 class SynthCoder(tf.keras.Model):
@@ -305,40 +305,5 @@ class MIDIExpressionAE(tf.keras.Model):
   def _build(self, inputs):
     inputs, kwargs = inputs
     self(inputs, **kwargs)
-
-
-class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
-
-  """
-  Wrapper that generates all the additional inputs from the audio
-  and makes the MIDIExpressionAE compatible with VST input/output interface
-  """
-
-  def __init__(self, ae_model):
-    tf.keras.Model.__init__(self)
-
-    self.ae = ae_model
-
-  #def __getattr__(self, item):
-  #  print(f"__getattr__ trying to get item={item}")
-  #  return getattr(self.ae_model, item)
-
-  def _unpack_synth_params(self, params):
-    return {
-      'amplitudes': params['amplitudes'],
-      'harmonic_distribution': params['harmonic_distribution'],
-      'noise_magnitudes': params['noise_magnitudes'],
-      'f0_hz': params['f0_hz']
-    }
-
-  def call(self, features, training=False, run_synth_coder_only=None):
-    print("MIDIExpressionAE_VST_IO_Wrapper.__call__()")
-
-    results = self.ae(features, training=training, run_synth_coder_only=run_synth_coder_only)
-
-    if self.ae.run_synth_coder_only:
-      return self._unpack_synth_params(results['synth_params'])
-    else:
-      return self._unpack_synth_params(results['midi_synth_params'])
 
 

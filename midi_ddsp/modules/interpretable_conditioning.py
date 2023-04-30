@@ -125,7 +125,24 @@ def get_vibrato_feature(pitch_deviation,
 
   # pad the pitch_deviation_masked because rfft in tflite accepts only powers of two
 
+  def closest_power_of_two(n):
+    n = tf.cast(n, tf.float32)
+    log2_n = tf.math.ceil(tf.math.log(n) / tf.math.log(2.0))
+    power = tf.cast(tf.math.pow(2.0, log2_n), tf.int32)
+    return power
+
+  original_dim = tf.cast(pitch_deviation_masked.shape[1], tf.int32)
+  if original_dim != 1:
+    target_pow2_dim = closest_power_of_two(original_dim)
+    padding_amount = target_pow2_dim - original_dim
+    padding = tf.stack([[0, 0], [0, padding_amount]])
+    pitch_deviation_masked = tf.pad(pitch_deviation_masked, padding)
+
   s_vibrato = tf.abs(tf.signal.rfft(pitch_deviation_masked))
+
+  if original_dim != 1:
+    s_vibrato = s_vibrato[:tf.cast(original_dim / 2, dtype=tf.int32)] # remove padded info
+
   print(f"tf.shape(pitch_deviation_masked)={tf.shape(pitch_deviation_masked)}")
   s_vibrato = tf.math.divide_no_nan(s_vibrato, tf.reshape(each_note_len, [-1, 1]))
 
@@ -135,7 +152,6 @@ def get_vibrato_feature(pitch_deviation,
   vibrato_extend = tf.gather_nd(s_vibrato, vibrato_rate_idx[:, tf.newaxis], batch_dims=1)
   # replace nan caused by rfft zeros with 0
 
-  print(type(vibrato_extend))
   vibrato_extend_is_nan = tf.math.is_nan(vibrato_extend)
   zero_tensor = tf.constant(0.0, dtype=vibrato_extend.dtype)
   vibrato_extend = tf.where(vibrato_extend_is_nan, zero_tensor, vibrato_extend)
