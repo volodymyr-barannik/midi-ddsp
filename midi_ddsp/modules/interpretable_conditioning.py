@@ -132,18 +132,27 @@ def get_vibrato_feature(pitch_deviation,
     return power
 
   original_dim = tf.cast(pitch_deviation_masked.shape[1], tf.int32)
-  if original_dim != 1:
+
+  def get_padded_pitch_deviation():
     target_pow2_dim = closest_power_of_two(original_dim)
     padding_amount = target_pow2_dim - original_dim
-    padding = tf.stack([[0, 0], [0, padding_amount]])
-    pitch_deviation_masked = tf.pad(pitch_deviation_masked, padding)
+    pitch_deviation_padded = tf.pad(pitch_deviation_masked, paddings=[[0, 0], [0, padding_amount]], mode='CONSTANT')
+    return pitch_deviation_padded
+
+  pitch_deviation_masked = tf.cond(
+            tf.math.not_equal(original_dim, 1),
+            get_padded_pitch_deviation,
+            lambda: pitch_deviation_masked)
 
   s_vibrato = tf.abs(tf.signal.rfft(pitch_deviation_masked))
 
   print(f"tf.shape(s_vibrato)={tf.shape(s_vibrato)}")
 
-  if original_dim != 1:
-    s_vibrato = s_vibrato[:, :tf.cast(original_dim / 2, dtype=tf.int32)] # remove padded info
+  s_vibrato = tf.cond(
+    tf.math.not_equal(original_dim, 1),
+    lambda: s_vibrato[:, :tf.cast(original_dim / 2, dtype=tf.int32)], # remove padded info
+    lambda: s_vibrato
+  )
 
   print(f"tf.shape(pitch_deviation_masked)={tf.shape(pitch_deviation_masked)}")
   print(f"tf.shape(s_vibrato)={tf.shape(s_vibrato)}")
