@@ -214,8 +214,8 @@ def conditioning_df_to_dict(conditioning_df, length=None):
 
 def get_process_group(n_frames, frame_size=64, sample_rate=16000,
                       use_angular_cumsum=True):
-  harmonic_synth = ddsp.synths.Harmonic(n_frames * frame_size, sample_rate, use_angular_cumsum=use_angular_cumsum)
-  noise_synth = ddsp.synths.FilteredNoise(n_frames * frame_size, sample_rate)
+  harmonic_synth = ddsp.synths.Harmonic(n_samples=n_frames * frame_size, sample_rate=sample_rate, use_angular_cumsum=use_angular_cumsum)
+  noise_synth = ddsp.synths.FilteredNoise(n_samples=n_frames * frame_size, window_size=sample_rate)
   add = ddsp.processors.Add(name='add')
   # Create ProcessorGroup.
   dag = [(harmonic_synth, ['amplitudes', 'harmonic_distribution', 'f0_hz']),

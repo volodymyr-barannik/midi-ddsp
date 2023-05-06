@@ -11,7 +11,7 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
   and makes the MIDIExpressionAE compatible with VST input/output interface
   """
 
-  def __init__(self, ae_model, vst_buffer_size, vst_frame_size):
+  def __init__(self, ae_model, vst_buffer_size, vst_frame_size, vst_scale_outputs=False):
     tf.keras.Model.__init__(self)
 
     self.ae = ae_model
@@ -19,6 +19,8 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
     self.vst_buffer_size = vst_buffer_size
     self.vst_frame_size = vst_frame_size
     self.vst_num_frames_in_buffer = ceil(self.vst_buffer_size / self.vst_frame_size)
+
+    self.vst_scale_outputs = vst_scale_outputs
 
     # Additional stuff to make output conversions like in original DDSPv1 VST model. It can be redundant
     self.scale_fn = core.exp_sigmoid
@@ -129,26 +131,29 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
     else:
       synth_params = self._unpack_synth_params(outputs['midi_synth_params'])
 
+    if self.vst_scale_outputs:
     # Apply the nonlinearities.
-    harm_controls = self._get_controls(
-                            amplitudes=synth_params['amplitudes'],
-                            harmonic_distribution=synth_params['harmonic_distribution'],
-                            f0_hz=f0_hz)
+      harm_controls = self._get_controls(
+                              amplitudes=synth_params['amplitudes'],
+                              harmonic_distribution=synth_params['harmonic_distribution'],
+                              f0_hz=f0_hz)
 
-    noise_controls = self._get_noise_controls(magnitudes=synth_params['noise_magnitudes'])
+      noise_controls = self._get_noise_controls(magnitudes=synth_params['noise_magnitudes'])
+    else:
+      harm_controls = synth_params['harmonic_distribution']
+      noise_controls = synth_params['noise_magnitudes']
 
     # Return 1-D tensors.
-    #amps = harm_controls['amplitudes']#[0]
     amps = tf.reshape(synth_params['amplitudes'][0][:self.vst_num_frames_in_buffer], [self.vst_num_frames_in_buffer])
-    #hd = harm_controls['harmonic_distribution']#[0]
-    hd = synth_params['harmonic_distribution'][0][:self.vst_num_frames_in_buffer]
+
+    hd = noise_controls[0][:self.vst_num_frames_in_buffer]
     if self.vst_num_frames_in_buffer == 1:
         hd = tf.reshape(hd, [hd.shape[1]])
-    #noise = noise_controls['magnitudes']#[0]
-    noise = synth_params['noise_magnitudes'][0][:self.vst_num_frames_in_buffer]
+
+    noise = harm_controls[0][:self.vst_num_frames_in_buffer]
     if self.vst_num_frames_in_buffer == 1:
         noise = tf.reshape(noise, [noise.shape[1]])
-    #state = outputs['state'][0]
+
     state = state # do nothing for now, we don't use stateless RNNs yet
 
     return {
