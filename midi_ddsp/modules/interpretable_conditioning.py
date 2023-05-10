@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 """Calculate note expression controls from synthesis parameters."""
+import logging
 
 import tensorflow as tf
 import ddsp

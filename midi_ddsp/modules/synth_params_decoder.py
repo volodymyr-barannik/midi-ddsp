@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 """Decoders that predicts synthesis parameters from latent sequence z."""
+import logging
 
 from tqdm.autonotebook import tqdm
 import tensorflow as tf

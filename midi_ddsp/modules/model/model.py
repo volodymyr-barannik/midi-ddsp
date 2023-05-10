@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 """Model class for Synthesis Generator + DDSP Inference module."""
+import logging
 
 import tensorflow as tf
 import ddsp

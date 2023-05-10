@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 """Dump the dataset for training expression generator."""
-
+import logging
 import os
 import argparse
 from midi_ddsp.utils.training_utils import set_seed, get_hp
