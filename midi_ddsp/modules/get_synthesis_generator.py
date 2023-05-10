@@ -109,9 +109,12 @@ def get_synthesis_generator(hp):
     decoder = FCStackHarmonicDecoder(hp.nhramonic, hp.nnoise)
   else:
     cnn = Cnn8(pool_size=(1, 2))
-    encoder = MelF0LDEncoder(cnn, hp.nhid, hp.sample_rate, hp.win_length,
-                             hp.hop_length, hp.n_fft, hp.num_mels,
-                             hp.fmin)
+    if hp.use_mel:
+      encoder = MelF0LDEncoder(cnn, hp.nhid, hp.sample_rate, hp.win_length,
+                               hp.hop_length, hp.n_fft, hp.num_mels,
+                               hp.fmin)
+    else:
+      encoder = F0LDEncoder(cnn=cnn, nhid=hp.nhid, sample_rate=hp.sample_rate)
     decoder = FCHarmonicDecoder(hp.nhramonic, hp.nnoise)
     use_f0_ld = False
 

@@ -93,6 +93,53 @@ class MelF0LDEncoder(tfk.Model):
     return z_out
 
 
+class F0LDEncoder(tfk.Model):
+  """The encoder in DDSP Inference.
+  The MelF0LDEncoder takes input of audio, loudness and f0.
+  The MelF0LDEncoder extract features from audio using an 8-layer CNN,
+  and extract features from loudness and f0 using fully-connected layers.
+  Then, a bi-lstm is used to extract contextual features from the extracted
+  features.
+  """
+
+  def __init__(self, cnn, nhid, sample_rate, extract_f0=False):
+    super().__init__()
+    self.nhid = nhid
+    self.cnn = cnn
+    self.z_fc = tfkl.Dense(nhid)
+    self.f0_ld_fc = tfkl.Dense(nhid)
+    self.rnn = tfkl.Bidirectional(
+      tfkl.LSTM(units=nhid, return_sequences=True), name='bilstm'
+    )
+    # TODO(yusongwu): change emb dim to 64
+    self.instrument_emb = tfkl.Embedding(NUM_INST, 128)
+
+    # mel-spec parameters
+    self.sample_rate = sample_rate
+
+    self.extract_f0 = extract_f0
+
+  def call(self, inputs, training=False):
+
+    print("F0LDEncoder.__call__()")
+
+    total_number_of_frames = inputs['f0_hz'].shape[1]
+
+    instrument_z = tf.tile(self.instrument_emb(inputs['instrument_id'])[:, tf.newaxis, :],
+                           [1, total_number_of_frames, 1])
+
+    if self.extract_f0:
+      inputs['f0_hz'] = extract_f0(inputs['audio'].numpy(), sr=self.sample_rate)
+
+    x = tf.concat([ddsp.core.hz_to_midi(inputs['f0_hz']) / F0_RANGE,
+                   inputs['loudness_db'] / DB_RANGE], -1)
+
+    x_z = self.f0_ld_fc(x)
+    z_out = self.rnn(tf.concat([x_z, instrument_z], -1))
+    return z_out
+
+
+
 class FCHarmonicDecoder(tfk.Model):
   """The decoder in DDSP Inference.
   The FCHarmonicDecoder takes input of a feature sequence,
