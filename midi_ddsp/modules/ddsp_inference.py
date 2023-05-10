@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 """Model class for DDSP Inference module used in MIDI-DDSP."""
+import logging
 
 import tensorflow as tf
 import ddsp
@@ -59,7 +60,7 @@ class MelF0LDEncoder(tfk.Model):
 
   def call(self, inputs, training=False):
 
-    print("MelF0LDEncoder.__call__()")
+    logging.debug("MelF0LDEncoder.__call__()")
 
     total_number_of_samples = inputs['audio'].shape[1]
     total_number_of_frames = inputs['f0_hz'].shape[1]
@@ -121,7 +122,7 @@ class F0LDEncoder(tfk.Model):
 
   def call(self, inputs, training=False):
 
-    print("F0LDEncoder.__call__()")
+    logging.debug("F0LDEncoder.__call__()")
 
     total_number_of_frames = inputs['f0_hz'].shape[1]
 
@@ -171,7 +172,7 @@ class FCHarmonicDecoder(tfk.Model):
     return synth_params
 
   def call(self, inputs):
-    print("FCHarmonicDecoder.__call__()")
+    logging.debug("FCHarmonicDecoder.__call__()")
     synth_params = self.get_synth_params(inputs)
 
     return synth_params

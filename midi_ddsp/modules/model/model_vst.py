@@ -27,7 +27,7 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
     self.sample_rate = 16000
     self.initial_bias = -5.0
   #def __getattr__(self, item): # it breaks the model
-  #  print(f"__getattr__ trying to get item={item}")
+  #  logging.debug(f"__getattr__ trying to get item={item}")
   #  return getattr(self.ae_model, item)
 
   @property
@@ -98,7 +98,7 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
 
   def call(self, audio, loudness_db, f0_hz, midi, onsets, offsets, instrument_id, state,
            training=False, run_synth_coder_only=None):
-    print("MIDIExpressionAE_VST_IO_Wrapper.__call__()")
+    logging.debug("MIDIExpressionAE_VST_IO_Wrapper.__call__()")
 
     audio = tf.reshape(audio, [1, self.vst_buffer_size])
     loudness_db = tf.reshape(loudness_db, [1, self.vst_num_frames_in_buffer, 1])
@@ -121,7 +121,7 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
       'instrument_id': instrument_id,
     }
 
-    print(reshaped_inputs)
+    logging.debug(reshaped_inputs)
 
     outputs = self.ae(reshaped_inputs, training=training, run_synth_coder_only=run_synth_coder_only)
 

@@ -40,7 +40,7 @@ class SynthCoder(tf.keras.Model):
     return synth_params
 
   def call(self, inputs, training=None):
-    print("SynthCoder.__call__()")
+    logging.debug("SynthCoder.__call__()")
     z = self.encode(inputs, training=training)
     synth_params = self.decode(z, inputs)
     return synth_params
@@ -195,7 +195,7 @@ class MIDIExpressionAE(tf.keras.Model):
     return midi_audio, midi_control_params, midi_synth_params
 
   def call(self, features, training=False, run_synth_coder_only=None):
-    print("MIDIExpressionAE.__call__()")
+    logging.debug("MIDIExpressionAE.__call__()")
 
     """Run the network to get a prediction and optionally get losses."""
 

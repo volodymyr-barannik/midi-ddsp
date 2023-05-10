@@ -49,7 +49,7 @@ def main():
   model._build(get_fake_data_synthesis_generator(hp))
   model.load_weights(model_path)
 
-  print('Creating dataset for expression generator!')
+  logging.debug('Creating dataset for expression generator!')
   dump_expression_generator_dataset(model, data_dir=args.data_dir,
                                     output_dir=args.output_dir)
 

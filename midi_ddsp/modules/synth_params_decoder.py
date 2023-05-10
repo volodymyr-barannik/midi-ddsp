@@ -169,14 +169,14 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
     return output
 
   def preprocess(self, q_pitch, out):
-    print("MidiExpreToF0AutoregDecoder.preprocess()")
+    logging.debug("MidiExpreToF0AutoregDecoder.preprocess()")
     f0_midi = ddsp.core.hz_to_midi(out['f0_hz'])
     f0_midi_dv = f0_midi - q_pitch  # f0 residual
     f0_dv_onehot = get_onehot_f0_dv(f0_midi_dv)
     return f0_dv_onehot
 
   def postprocess(self, outputs, q_pitch, training=False):
-    print("MidiExpreToF0AutoregDecoder.postprocess()")
+    logging.debug("MidiExpreToF0AutoregDecoder.postprocess()")
     outputs['f0_midi_dv'] = get_float_f0_dv(outputs['f0_midi_dv_onehot'])
     outputs['f0_midi'] = outputs['f0_midi_dv'] + q_pitch
     outputs['f0_hz'] = ddsp.core.midi_to_hz(outputs['f0_midi'])
@@ -185,7 +185,7 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
   @tf.function()
   def call(self, q_pitch, z_midi_decoder, conditioning_dict, out=None,
            training=False, display_progressbar=False):
-    print(f"MidiExpreToF0AutoregDecoder.call(), training={training}")
+    logging.debug(f"MidiExpreToF0AutoregDecoder.call(), training={training}")
     if training:
       out = self.preprocess(q_pitch, out)
       outputs = self.teacher_force(z_midi_decoder, out, training=training)
@@ -435,7 +435,7 @@ class MidiExpreToSynthDecoder(tfk.Model):  # TODO: (yusongwu) merge into DDSP
     self.norm = nn.Normalize('layer') if norm else None
 
   def call(self, z, training=False):
-    print("MidiExpreToSynthDecoder.__call__()")
+    logging.debug("MidiExpreToSynthDecoder.__call__()")
     x = self.net(z, training=training)
 
     if self.norm is not None:
@@ -472,7 +472,7 @@ class MidiToSynthAutoregDecoder(tfk.Model):
 
   def call(self, q_pitch, z_midi_decoder, interpretable_conditioning_dict, out=None,
            training=False, display_progressbar=False):
-    print("MidiToSynthAutoregDecoder.__call__()")
+    logging.debug("MidiToSynthAutoregDecoder.__call__()")
 
     # Predict f0 from interpretable conditioning (e.g. brightness, attack..) and pitch extracted from original audio
     f0_output = self.midi_to_f0_layer(q_pitch, z_midi_decoder, interpretable_conditioning_dict,
