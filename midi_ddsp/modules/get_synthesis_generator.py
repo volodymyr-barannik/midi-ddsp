@@ -20,7 +20,7 @@ import tensorflow as tf
 from midi_ddsp.data_handling.instrument_name_utils import NUM_INST
 from midi_ddsp.modules.model.model import SynthCoder, MIDIExpressionAE
 from midi_ddsp.modules.ddsp_inference import MelF0LDEncoder, F0LDEncoder, \
-  FCHarmonicDecoder, FCStackHarmonicDecoder, Cnn8
+  FCHarmonicDecoder, FCStackHarmonicDecoder, Cnn8, F0LDEncoder2, MelF0LDEncoder_WthoutMel
 from midi_ddsp.modules.reverb_modules import ReverbModules
 from midi_ddsp.modules.synth_params_decoder import MidiToSynthAutoregDecoder, \
   MidiToF0LDAutoregDecoder, F0LDAutoregDecoder, \
@@ -114,7 +114,7 @@ def get_synthesis_generator(hp):
                                hp.hop_length, hp.n_fft, hp.num_mels,
                                hp.fmin)
     else:
-      encoder = F0LDEncoder(cnn=cnn, nhid=hp.nhid, sample_rate=hp.sample_rate)
+      encoder = MelF0LDEncoder_WthoutMel(cnn=cnn, nhid=hp.nhid, sample_rate=hp.sample_rate)
     decoder = FCHarmonicDecoder(hp.nhramonic, hp.nnoise)
     use_f0_ld = False
 

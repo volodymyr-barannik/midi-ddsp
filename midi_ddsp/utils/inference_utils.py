@@ -221,7 +221,7 @@ def get_process_group(n_frames, frame_size=64, sample_rate=16000,
   dag = [(harmonic_synth, ['amplitudes', 'harmonic_distribution', 'f0_hz']),
          (noise_synth, ['noise_magnitudes']),
          (add, ['filtered_noise/signal', 'harmonic/signal'])]
-
+  
   processor_group = ddsp.processors.ProcessorGroup(dag=dag,
                                                    name='processor_group')
   return processor_group

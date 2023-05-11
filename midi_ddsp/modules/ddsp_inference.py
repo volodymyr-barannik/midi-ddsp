@@ -94,7 +94,7 @@ class MelF0LDEncoder(tfk.Model):
     return z_out
 
 
-class F0LDEncoder(tfk.Model):
+class MelF0LDEncoder_WthoutMel(tfk.Model):
   """The encoder in DDSP Inference.
   The MelF0LDEncoder takes input of audio, loudness and f0.
   The MelF0LDEncoder extract features from audio using an 8-layer CNN,
