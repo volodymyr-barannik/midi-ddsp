@@ -102,8 +102,8 @@ def get_midi_decoder(hp):
 
 def get_synthesis_generator(hp):
   if hp.midi_decoder_decoder_net == 'rnn_f0_ld' or \
-        hp.midi_decoder_type == 'midi_decoder' or \
-        hp.midi_decoder_type == 'unconditioned':
+    hp.midi_decoder_type == 'midi_decoder' or \
+    hp.midi_decoder_type == 'unconditioned':
     use_f0_ld = True
     encoder = F0LDEncoder()
     decoder = FCStackHarmonicDecoder(hp.nhramonic, hp.nnoise)
@@ -128,7 +128,7 @@ def get_synthesis_generator(hp):
     if hp.reverb:
       num_reverb = NUM_INST if hp.multi_instrument else 1
 
-      #reverb_effect = ddsp.effects.FilteredNoiseReverb(trainable=False,
+      # reverb_effect = ddsp.effects.FilteredNoiseReverb(trainable=False,
       #                                          reverb_length=hp.reverb_length,
       #                                          n_frames=500,
       #                                          n_filter_banks=32,
@@ -164,7 +164,7 @@ def get_fake_data_synthesis_generator(hp):
   """Get the fake data for building the synthesis generator."""
   fake_data = {
     'audio': tf.random.normal([1, hp.sequence_length * hp.frame_size]),
-    #'mel': tf.random.normal([1, hp.sequence_length, hp.num_mels]), we don't need mel, it is generated automatically
+    # 'mel': tf.random.normal([1, hp.sequence_length, hp.num_mels]), we don't need mel, it is generated automatically
     'f0_hz': tf.random.normal([1, hp.sequence_length, 1]),
     'loudness_db': tf.random.normal([1, hp.sequence_length, 1]),
     'midi': tf.ones([1, hp.sequence_length], dtype=tf.int64),

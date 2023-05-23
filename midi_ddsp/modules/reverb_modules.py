@@ -48,7 +48,6 @@ class ReverbModules(tfk.Model):
     self.reverb = reverb_effect
     self.reverb_length = reverb_length
 
-
     initializer = tf.random_normal_initializer(mean=0, stddev=1e-6)
     self.magnitudes_embedding = tfkl.Embedding(num_reverb, reverb_length, embeddings_initializer=initializer)
 

@@ -19,6 +19,7 @@ import tensorflow as tf
 
 class LossHelper:
   """Loss helper for handling and logging the losses."""
+
   def __init__(self):
     self.metrics = None
 
@@ -50,7 +51,6 @@ class LossHelper:
       loss_result = self.metrics[f'mean_{loss_name}'].result()
       res[loss_name] = loss_result
     return res
-
 
   def write_mean_summary(self, writer, group_name, step):
     with writer.as_default():

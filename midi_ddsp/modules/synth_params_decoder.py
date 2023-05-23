@@ -192,7 +192,7 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
       outputs = self.teacher_force(z_midi_decoder, out, training=training)
     else:
       outputs = self.autoregressive(z_midi_decoder, training=training, display_progressbar=display_progressbar)
-      #outputs = self.autoregressive_original(z_midi_decoder, training=training, display_progressbar=display_progressbar)
+      # outputs = self.autoregressive_original(z_midi_decoder, training=training, display_progressbar=display_progressbar)
 
     outputs = self.postprocess(outputs, q_pitch)
 
@@ -202,6 +202,7 @@ class MidiExpreToF0AutoregDecoder(TwoLayerCondAutoregRNN):
 class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
   """Autoregressive prediction of f0 and loudnes from z_midi_decoder that
    only contains MIDI. (The implementation of MIDI2Params.)"""
+
   def __init__(self, nhid=256, norm=True, dropout=0.5, sampling_method='top_p'):
     super().__init__(
       nhid=nhid,
@@ -279,7 +280,7 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
       out = self.preprocess(q_pitch, out)
       outputs = self.teacher_force(z_midi_decoder, out, training=training)
     else:
-      #outputs = self.autoregressive(z_midi_decoder, training=training)
+      # outputs = self.autoregressive(z_midi_decoder, training=training)
       outputs = self.autoregressive_original(z_midi_decoder, training=training)
 
     outputs = self.postprocess(outputs, q_pitch)
@@ -304,7 +305,7 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
     length = cond_dynamic_shape[1]
     prev_out = tf.tile([[0.0]], [batch_size, self.n_out])[:, tf.newaxis, :]  # go_frame
     prev_states = (None, None)
-    #overall_outputs = []
+    # overall_outputs = []
 
     teacher_force_batch_size = tf.shape(teacher_force_mask)[0]
 
@@ -312,7 +313,7 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
                   disable=not display_progressbar):
       curr_cond = tf.tile(cond[:, i:i + 1, :], [teacher_force_batch_size, 1, 1])
       prev_out = self.encode_out(prev_out) * (
-            1 - teacher_force_mask[:, i:i + 1, :]) + \
+        1 - teacher_force_mask[:, i:i + 1, :]) + \
                  out[:, i:i + 1, :] * teacher_force_mask[:, i:i + 1, :]
       curr_out, curr_states = self._one_step(curr_cond, prev_out, prev_states, training=training)
       curr_out = self.sample_out(curr_out)
@@ -329,6 +330,7 @@ class MidiToF0LDAutoregDecoder(TwoLayerCondAutoregRNN):
 class F0LDAutoregDecoder(TwoLayerCondAutoregRNN):
   """Autoregressive prediction of f0 and loudness.
   (A fully unconditional model without MIDI input.)"""
+
   def __init__(self, nhid=256, norm=True, dropout=0.5, sampling_method='top_p'):
     self.n_f0 = ABSOLUTE_F0_BINS
     self.n_ld = ABSOLUTE_LD_BINS
@@ -417,6 +419,7 @@ class F0LDAutoregDecoder(TwoLayerCondAutoregRNN):
 class MidiExpreToSynthDecoder(tfk.Model):  # TODO: (yusongwu) merge into DDSP
   """Predicting synthesis parameters from MIDI and note expression controls
    using only dilated convolution networks."""
+
   def __init__(self,
                net=None,
                norm=True,
@@ -452,6 +455,7 @@ class MidiToSynthAutoregDecoder(tfk.Model):
   """Predicting synthesis parameters from MIDI and note expression controls
    using autoregressive RNN for f0 and dilated convolution networks for
    amplitudes, harmonic distribution and noise magnitudes."""
+
   def __init__(self, nhid=256,
                hd_noise_output_splits=(('amplitudes', 1),
                                        ('harmonic_distribution', 60),

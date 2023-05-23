@@ -253,8 +253,8 @@ class ReconLossHelper(LossHelper):
       self.loss_group = EvalReconLossGroup()
 
     elif midi_decoder_type == 'midi_decoder' or \
-          midi_decoder_type == 'unconditioned' or \
-          midi_decoder_decoder_net == 'rnn_f0_ld':
+      midi_decoder_type == 'unconditioned' or \
+      midi_decoder_decoder_net == 'rnn_f0_ld':
 
       self.loss_group = F0LdReconLossGroup(midi_audio_loss=midi_audio_loss,
                                            synth_params_loss=synth_params_loss,

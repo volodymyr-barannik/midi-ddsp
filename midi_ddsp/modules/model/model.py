@@ -92,7 +92,6 @@ class MIDIExpressionAE(tf.keras.Model):
     self.reverb_module = reverb_module
     self.model_type = 'MIDIExpressionAE'
 
-
     self.processor_group = processor_group
     self.n_frames = n_frames
     self.frame_size = frame_size
@@ -144,7 +143,9 @@ class MIDIExpressionAE(tf.keras.Model):
     return q_pitch, q_vel, f0_loss_weights, features['onsets'], features['offsets']
 
   def gen_cond_dict_from_feature(self, features, training=False):
-    synth_params, control_params, synth_audio = self.run_synth_coder(features, run_without_synths=self.run_without_synths, training=training)
+    synth_params, control_params, synth_audio = self.run_synth_coder(features,
+                                                                     run_without_synths=self.run_without_synths,
+                                                                     training=training)
 
     # synth_params_normalized: scaled and normalized synth params
     synth_params_normalized = normalize_synth_params(synth_params)
@@ -203,7 +204,9 @@ class MIDIExpressionAE(tf.keras.Model):
     if run_synth_coder_only is not None:
       self.run_synth_coder_only = run_synth_coder_only
 
-    synth_params, control_params, synth_audio = self.run_synth_coder(features, run_without_synths=self.run_without_synths, training=training)
+    synth_params, control_params, synth_audio = self.run_synth_coder(features,
+                                                                     run_without_synths=self.run_without_synths,
+                                                                     training=training)
     if self.run_synth_coder_only:  # only run synth coder branch
       if self.run_without_synths:
         outputs = {
@@ -219,7 +222,7 @@ class MIDIExpressionAE(tf.keras.Model):
 
     # synth_params_normalized: scaled and normalized synth params
     synth_params_normalized = normalize_synth_params(synth_params, stop_gradient=True)
-    #synth_params_normalized = extract_harm_controls(control_params, stop_gradient=True)
+    # synth_params_normalized = extract_harm_controls(control_params, stop_gradient=True)
 
     # rearrange midi features in readable format
     midi_features = self.get_gt_midi(features)
@@ -233,11 +236,11 @@ class MIDIExpressionAE(tf.keras.Model):
 
     if self.run_without_synths:
       midi_synth_params = {'harmonic_distribution': params_pred['harmonic_distribution'],
-        'f0_hz': params_pred['f0_hz'],
-        # Omitting 'state' here. NB! MIDI-DDSP expects it!
-        'amplitudes': params_pred['amplitudes'],
-        'noise_magnitudes': params_pred['noise_magnitudes']
-       }
+                           'f0_hz': params_pred['f0_hz'],
+                           # Omitting 'state' here. NB! MIDI-DDSP expects it!
+                           'amplitudes': params_pred['amplitudes'],
+                           'noise_magnitudes': params_pred['noise_magnitudes']
+                           }
 
       outputs = {
         'synth_params': synth_params,
@@ -306,5 +309,3 @@ class MIDIExpressionAE(tf.keras.Model):
   def _build(self, inputs):
     inputs, kwargs = inputs
     self(inputs, **kwargs)
-
-

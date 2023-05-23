@@ -104,7 +104,6 @@ def get_vibrato_feature(pitch_deviation,
                         min_note_length=50,
                         vibrato_rate_min=3,
                         vibrato_rate_max=9):
-
   batch_size = tf.shape(pitch_deviation)[0]
   total_length = tf.shape(pitch_deviation)[1]
   pitch_deviation_masked = note_mask * pitch_deviation
@@ -141,9 +140,9 @@ def get_vibrato_feature(pitch_deviation,
     return pitch_deviation_padded
 
   pitch_deviation_masked = tf.cond(
-            tf.math.not_equal(original_dim, 1),
-            get_padded_pitch_deviation,
-            lambda: pitch_deviation_masked)
+    tf.math.not_equal(original_dim, 1),
+    get_padded_pitch_deviation,
+    lambda: pitch_deviation_masked)
 
   s_vibrato = tf.abs(tf.signal.rfft(pitch_deviation_masked))
 
@@ -151,7 +150,7 @@ def get_vibrato_feature(pitch_deviation,
 
   s_vibrato = tf.cond(
     tf.math.not_equal(original_dim, 1),
-    lambda: s_vibrato[:, :tf.cast(original_dim / 2, dtype=tf.int32)], # remove padded info
+    lambda: s_vibrato[:, :tf.cast(original_dim / 2, dtype=tf.int32)],  # remove padded info
     lambda: s_vibrato
   )
 
@@ -183,15 +182,18 @@ def get_vibrato_feature(pitch_deviation,
                                      min_note_length)
 
   # vibrato more than one cycle
-  more_than_one_cycle_mask = vibrato_rate > tf.math.divide_no_nan(1., tf.reshape(each_note_len, [-1]) * sampling_interval)
+  more_than_one_cycle_mask = vibrato_rate > tf.math.divide_no_nan(1.,
+                                                                  tf.reshape(each_note_len, [-1]) * sampling_interval)
   vibrato_mask = tf.math.logical_and(vibrato_mask, more_than_one_cycle_mask)
   vibrato_mask = tf.cast(vibrato_mask, tf.float32)
 
   # construct output
   vibrato_extend = vibrato_mask * vibrato_extend
   vibrato_rate = vibrato_mask * vibrato_rate
-  frame_wise_vibrato_rate = tf.reduce_sum(tf.reshape(vibrato_rate, [batch_size, 1, -1]) * note_mask, axis=-1, keepdims=True)
-  frame_wise_vibrato_extend = tf.reduce_sum(tf.reshape(vibrato_extend, [batch_size, 1, -1]) * note_mask, axis=-1, keepdims=True)
+  frame_wise_vibrato_rate = tf.reduce_sum(tf.reshape(vibrato_rate, [batch_size, 1, -1]) * note_mask, axis=-1,
+                                          keepdims=True)
+  frame_wise_vibrato_extend = tf.reduce_sum(tf.reshape(vibrato_extend, [batch_size, 1, -1]) * note_mask, axis=-1,
+                                            keepdims=True)
 
   return frame_wise_vibrato_rate, frame_wise_vibrato_extend
 

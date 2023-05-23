@@ -6,7 +6,6 @@ from ddsp import core
 
 
 class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
-
   """
   Wrapper that generates all the additional inputs from the audio
   and makes the MIDIExpressionAE compatible with VST input/output interface
@@ -27,21 +26,18 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
     self.scale_fn = core.exp_sigmoid
     self.sample_rate = 16000
     self.initial_bias = -5.0
-  #def __getattr__(self, item): # it breaks the model
-  #  logging.debug(f"__getattr__ trying to get item={item}")
-  #  return getattr(self.ae_model, item)
 
   @property
   def _signatures(self):
     return {'call': self.call.get_concrete_function(
-        audio=        tf.TensorSpec(shape=[1024], dtype=tf.float32),
-        loudness_db=  tf.TensorSpec(shape=[1], dtype=tf.float32),
-        f0_hz=        tf.TensorSpec(shape=[1], dtype=tf.float32),
-        midi=         tf.TensorSpec(shape=[1], dtype=tf.float32),
-        onsets=       tf.TensorSpec(shape=[1], dtype=tf.float32),
-        offsets=      tf.TensorSpec(shape=[1], dtype=tf.float32),
-        instrument_id=tf.TensorSpec(shape=[1], dtype=tf.float32),
-        state=        tf.TensorSpec(shape=[self.state_size], dtype=tf.float32),
+      audio=tf.TensorSpec(shape=[1024], dtype=tf.float32),
+      loudness_db=tf.TensorSpec(shape=[1], dtype=tf.float32),
+      f0_hz=tf.TensorSpec(shape=[1], dtype=tf.float32),
+      midi=tf.TensorSpec(shape=[1], dtype=tf.float32),
+      onsets=tf.TensorSpec(shape=[1], dtype=tf.float32),
+      offsets=tf.TensorSpec(shape=[1], dtype=tf.float32),
+      instrument_id=tf.TensorSpec(shape=[1], dtype=tf.float32),
+      state=tf.TensorSpec(shape=[self.state_size], dtype=tf.float32),
     )}
 
   def _unpack_synth_params(self, params):
@@ -53,9 +49,9 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
     }
 
   def _get_controls(self,
-                   amplitudes,
-                   harmonic_distribution,
-                   f0_hz):
+                    amplitudes,
+                    harmonic_distribution,
+                    f0_hz):
     """Convert network output tensors into a dictionary of synthesizer controls.
 
     Args:
@@ -74,7 +70,7 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
       harmonic_distribution = self.scale_fn(harmonic_distribution)
 
     harmonic_distribution = core.normalize_harmonics(harmonic_distribution, f0_hz, self.sample_rate)
-        #self.sample_rate if self.normalize_below_nyquist else None)
+    # self.sample_rate if self.normalize_below_nyquist else None)
 
     return {'amplitudes': amplitudes,
             'harmonic_distribution': harmonic_distribution,
@@ -96,7 +92,6 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
 
     return {'magnitudes': magnitudes}
 
-
   def call(self, audio, loudness_db, f0_hz, midi, onsets, offsets, instrument_id, state,
            training=False, run_synth_coder_only=None):
     logging.debug("MIDIExpressionAE_VST_IO_Wrapper.__call__()")
@@ -108,9 +103,9 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
 
     onsets = tf.reshape(onsets, [1, self.vst_num_frames_in_buffer])
     offsets = tf.reshape(offsets, [1, self.vst_num_frames_in_buffer])
-    #instrument_id = instrument_id
+    # instrument_id = instrument_id
 
-    #state = tf.reshape(state, [1, self.state_size])
+    # state = tf.reshape(state, [1, self.state_size])
 
     reshaped_inputs = {
       'audio': audio,
@@ -133,11 +128,11 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
       synth_params = self._unpack_synth_params(outputs['midi_synth_params'])
 
     if self.vst_scale_outputs:
-    # Apply the nonlinearities.
+      # Apply the nonlinearities.
       harm_controls = self._get_controls(
-                              amplitudes=synth_params['amplitudes'],
-                              harmonic_distribution=synth_params['harmonic_distribution'],
-                              f0_hz=f0_hz)
+        amplitudes=synth_params['amplitudes'],
+        harmonic_distribution=synth_params['harmonic_distribution'],
+        f0_hz=f0_hz)
 
       noise_controls = self._get_noise_controls(magnitudes=synth_params['noise_magnitudes'])
     else:
@@ -149,13 +144,13 @@ class MIDIExpressionAE_VST_IO_Wrapper(tf.keras.Model):
 
     hd = noise_controls[0][:self.vst_num_frames_in_buffer]
     if self.vst_num_frames_in_buffer == 1:
-        hd = tf.reshape(hd, [hd.shape[1]])
+      hd = tf.reshape(hd, [hd.shape[1]])
 
     noise = harm_controls[0][:self.vst_num_frames_in_buffer]
     if self.vst_num_frames_in_buffer == 1:
-        noise = tf.reshape(noise, [noise.shape[1]])
+      noise = tf.reshape(noise, [noise.shape[1]])
 
-    state = state # do nothing for now, we don't use stateless RNNs yet
+    state = state  # do nothing for now, we don't use stateless RNNs yet
 
     return {
       'amplitudes': amps,

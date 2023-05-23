@@ -59,7 +59,6 @@ class MelF0LDEncoder(tfk.Model):
     self.extract_f0 = extract_f0
 
   def call(self, inputs, training=False):
-
     logging.debug("MelF0LDEncoder.__call__()")
 
     total_number_of_samples = inputs['audio'].shape[1]
@@ -70,8 +69,8 @@ class MelF0LDEncoder(tfk.Model):
 
     mel = tf_log_mel(audio=inputs['audio'],
                      sample_rate=self.sample_rate,
-                     win_length=win_length_in_samples, # v.barannik self.win_length,
-                     hop_length=hop_length_in_samples, # v.barannik self.hop_length,
+                     win_length=win_length_in_samples,  # v.barannik self.win_length,
+                     hop_length=hop_length_in_samples,  # v.barannik self.hop_length,
                      n_fft=self.n_fft,
                      num_mels=self.num_mels,
                      fmin=self.fmin,
@@ -121,8 +120,7 @@ class MelF0LDEncoder_WthoutMel(tfk.Model):
     self.extract_f0 = extract_f0
 
   def call(self, inputs, training=False):
-
-    logging.debug("F0LDEncoder.__call__()")
+    logging.debug("MelF0LDEncoder_WthoutMel.__call__()")
 
     total_number_of_frames = inputs['f0_hz'].shape[1]
 
@@ -138,7 +136,6 @@ class MelF0LDEncoder_WthoutMel(tfk.Model):
     x_z = self.f0_ld_fc(x)
     z_out = self.rnn(tf.concat([x_z, instrument_z], -1))
     return z_out
-
 
 
 class FCHarmonicDecoder(tfk.Model):

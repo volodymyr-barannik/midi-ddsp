@@ -142,11 +142,12 @@ class ExpressionMidiDecoder(tfk.Model):
     if self.decoder_type == 'rnn_f0_ld':
       synth_params = features
 
-    z_midi_decoder, params_pred = self.generate_synth_params_from_interpretable_conditioning(interpretable_conditioning_dict,
-                                                                                             midi_features,
-                                                                                             instrument_id=instrument_id,
-                                                                                             synth_params=synth_params,
-                                                                                             training=training)
+    z_midi_decoder, params_pred = self.generate_synth_params_from_interpretable_conditioning(
+      interpretable_conditioning_dict,
+      midi_features,
+      instrument_id=instrument_id,
+      synth_params=synth_params,
+      training=training)
 
     params_pred['z_midi_decoder'] = z_midi_decoder
 
